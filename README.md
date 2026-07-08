@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Simple Finance — Self-Hosted Finance Tracker
 
-## Getting Started
+Simple Finance is a modern, self-hosted personal finance tracking application designed with a premium dark-mode interface (inspired by Selvault Finance). It is built using the latest modern web technologies: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Prisma ORM, and PostgreSQL.
 
-First, run the development server:
+---
 
+## 🚀 Quick Start with Docker
+
+The entire stack (application + database) is containerized and ready to run.
+
+### 1. Configure Environment
+Clone the `.env.example` file and create `.env`:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+```
+Ensure you update the `AUTH_SECRET` inside the `.env` file with a secure random key. You can generate one with:
+```bash
+openssl rand -base64 32
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Start Services
+Run Docker Compose to build and start the application and PostgreSQL containers:
+```bash
+docker compose up -d --build
+```
+This starts:
+- **PostgreSQL Database** container at port `5432` (with healthcheck enabled)
+- **Next.js Standalone App** container running at port `3000` (builds after database healthcheck returns success)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Initialize Database Schemas & Seed Demo Data
+Once the containers are up and running, trigger database migrations and load the mock statements:
+```bash
+# Run migrations
+docker compose exec app npx prisma migrate deploy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Seed demo statements and accounts
+docker compose exec app npx prisma db seed
+```
+Now open [http://localhost:3000](http://localhost:3000) and sign in using the seeded demo credentials:
+* **Email**: `demo@simplefinance.app`
+* **Password**: `password123`
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠️ Local Development (Without Docker App container)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+If you wish to run the Next.js app locally with hot reloading while using a Dockerized database:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Spin up database only**:
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
+2. **Install Node dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Generate Prisma Client & Run Migrations**:
+   ```bash
+   npx prisma migrate dev --name init
+   npx prisma db seed
+   ```
+4. **Start local development server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) inside your browser.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📁 Architecture Overview
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+simple-finance/
+├── prisma/
+│   ├── schema.prisma           # Data schema defining 16 normalized tables
+│   └── seed.ts                 # Database seeder (HDFC/ICICI accounts, 30 days history)
+├── src/
+│   ├── app/
+│   │   ├── (auth)/             # Login, Signup pages
+│   │   ├── (dashboard)/        # Main dashboard pages (home, accounts, transactions)
+│   │   └── api/                # Next.js Route handlers (REST endpoints)
+│   ├── components/
+│   │   ├── dashboard/          # Recharts visualization modules
+│   │   ├── layout/             # Sidebar, Mobile navigation drawer, Top Navbar
+│   │   └── shared/             # Currency input, empty states, loading skeletons
+│   ├── hooks/                  # Debouncing and media query hooks
+│   └── lib/
+│       ├── auth.ts             # Auth.js v5 credentials configuration
+│       ├── prisma.ts           # Singleton Prisma client instance
+│       └── format.ts           # Compact Currency (INR) and date formatters
+├── Dockerfile                  # Optimized multi-stage build running node:20-alpine
+├── docker-compose.yml          # Production docker configuration
+└── docker-compose.dev.yml      # Development postgres-only docker configuration
+```
+
+---
+
+## 🔐 Security Features
+- **Session Management**: Secure JSON Web Tokens (JWT) using NextAuth / Auth.js v5.
+- **Password Hashing**: Secure salted hashes using `bcryptjs` with round strength of 12.
+- **Double Entry Atomic Actions**: Balance changes on account ledgers are computed inside atomic Prisma transactions to prevent corrupt states during creations, updates, or deletions.

@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-simplefinance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simplefinance_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-simplefinance}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simplefinance} -d ${POSTGRES_DB:-simplefinance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - simplefinance
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-simplefinance}:${POSTGRES_PASSWORD:-simplefinance_secret}@db:5432/${POSTGRES_DB:-simplefinance}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+    networks:
+      - simplefinance
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads:
+    driver: local
+
+networks:
+  simplefinance:
+    driver: bridge

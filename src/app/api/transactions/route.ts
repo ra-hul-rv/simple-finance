@@ -1,0 +1,217 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { z } from 'zod';
+
+const transactionSchema = z.object({
+  amount: z.number().positive('Amount must be positive'),
+  type: z.enum([
+    'INCOME',
+    'EXPENSE',
+    'TRANSFER',
+    'INVESTMENT',
+    'CREDIT_CARD_PAYMENT',
+    'REFUND',
+    'INTEREST',
+    'DIVIDEND',
+  ]),
+  date: z.string().transform((str) => new Date(str)),
+  description: z.string().min(1, 'Description is required'),
+  merchant: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  accountId: z.string().uuid('Invalid account ID'),
+  categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
+  transferToAccountId: z.string().uuid('Invalid destination account ID').optional().nullable(),
+  tags: z.array(z.string()).optional().default([]),
+});
+
+export async function GET(request: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const accountId = searchParams.get('accountId');
+    const categoryId = searchParams.get('categoryId');
+    const search = searchParams.get('search');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const skip = (page - 1) * limit;
+
+    const whereClause: any = {
+      userId: session.user.id,
+    };
+
+    if (type) whereClause.type = type;
+    if (accountId) whereClause.accountId = accountId;
+    if (categoryId) whereClause.categoryId = categoryId;
+    if (search) {
+      whereClause.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        { merchant: { contains: search, mode: 'insensitive' } },
+        { notes: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (startDate || endDate) {
+      whereClause.date = {};
+      if (startDate) whereClause.date.gte = new Date(startDate);
+      if (endDate) whereClause.date.lte = new Date(endDate);
+    }
+
+    const [transactions, totalCount] = await prisma.$transaction([
+      prisma.transaction.findMany({
+        where: whereClause,
+        include: {
+          account: true,
+          category: true,
+          transferToAccount: true,
+        },
+        orderBy: { date: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.transaction.count({ where: whereClause }),
+    ]);
+
+    const formatted = transactions.map((tx: any) => ({
+      ...tx,
+      amount: Number(tx.amount),
+      account: { ...tx.account, balance: Number(tx.account.balance) },
+      category: tx.category ? { ...tx.category, budgetAmount: tx.category.budgetAmount ? Number(tx.category.budgetAmount) : null } : null,
+      transferToAccount: tx.transferToAccount ? { ...tx.transferToAccount, balance: Number(tx.transferToAccount.balance) } : null,
+    }));
+
+    return NextResponse.json({
+      transactions: formatted,
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to get transactions:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validated = transactionSchema.parse(body);
+
+    // Run transaction and account balance updates in an atomic Prisma transaction
+    const transaction = await prisma.$transaction(async (tx: any) => {
+      // 1. Create the transaction record
+      const createdTx = await tx.transaction.create({
+        data: {
+          amount: validated.amount,
+          type: validated.type,
+          date: validated.date,
+          description: validated.description,
+          merchant: validated.merchant,
+          location: validated.location,
+          notes: validated.notes,
+          accountId: validated.accountId,
+          categoryId: validated.categoryId || null,
+          transferToAccountId: validated.transferToAccountId || null,
+          userId: session.user.id,
+        },
+      });
+
+      // 2. Update Account balances
+      const account = await tx.account.findUnique({
+        where: { id: validated.accountId },
+      });
+
+      if (!account) {
+        throw new Error('Source account not found');
+      }
+
+      if (validated.type === 'INCOME' || validated.type === 'REFUND' || validated.type === 'INTEREST' || validated.type === 'DIVIDEND') {
+        await tx.account.update({
+          where: { id: validated.accountId },
+          data: { balance: { increment: validated.amount } },
+        });
+      } else if (validated.type === 'EXPENSE' || validated.type === 'INVESTMENT') {
+        await tx.account.update({
+          where: { id: validated.accountId },
+          data: { balance: { decrement: validated.amount } },
+        });
+      } else if (validated.type === 'TRANSFER' || validated.type === 'CREDIT_CARD_PAYMENT') {
+        if (!validated.transferToAccountId) {
+          throw new Error('Destination account is required for transfers');
+        }
+
+        const destAccount = await tx.account.findUnique({
+          where: { id: validated.transferToAccountId },
+        });
+
+        if (!destAccount) {
+          throw new Error('Destination account not found');
+        }
+
+        // Decrement source
+        await tx.account.update({
+          where: { id: validated.accountId },
+          data: { balance: { decrement: validated.amount } },
+        });
+
+        // Increment destination
+        await tx.account.update({
+          where: { id: validated.transferToAccountId },
+          data: { balance: { increment: validated.amount } },
+        });
+      }
+
+      // 3. Update budget spent amount for current month if it's an EXPENSE
+      if (validated.type === 'EXPENSE' && validated.categoryId) {
+        const txMonth = validated.date.getMonth() + 1;
+        const txYear = validated.date.getFullYear();
+
+        const budget = await tx.budget.findFirst({
+          where: {
+            userId: session.user.id,
+            categoryId: validated.categoryId,
+            month: txMonth,
+            year: txYear,
+          },
+        });
+
+        if (budget) {
+          await tx.budget.update({
+            where: { id: budget.id },
+            data: { spent: { increment: validated.amount } },
+          });
+        }
+      }
+
+      return createdTx;
+    });
+
+    return NextResponse.json({
+      ...transaction,
+      amount: Number(transaction.amount),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 });
+    }
+    console.error('Failed to create transaction:', error);
+    return NextResponse.json({ error: (error as any).message || 'Internal Server Error' }, { status: 500 });
+  }
+}

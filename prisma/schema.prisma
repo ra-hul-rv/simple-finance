@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  SAVINGS
+  CURRENT
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  FIXED_DEPOSIT
+  STOCKS
+  MUTUAL_FUNDS
+  CRYPTO
+  LOAN
+  EPF
+  PPF
+  NPS
+  OTHER
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  INVESTMENT
+  CREDIT_CARD_PAYMENT
+  REFUND
+  INTEREST
+  DIVIDEND
+}
+
+enum TransactionStatus {
+  COMPLETED
+  PENDING
+  CANCELLED
+  RECURRING
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum InvestmentType {
+  STOCKS
+  MUTUAL_FUNDS
+  GOLD
+  CRYPTO
+  FIXED_DEPOSIT
+  BONDS
+  EPF
+  PPF
+  NPS
+  OTHER
+}
+
+enum NotificationType {
+  BILL_DUE
+  CREDIT_CARD_DUE
+  FD_MATURITY
+  SUBSCRIPTION_RENEWAL
+  LARGE_EXPENSE
+  BUDGET_EXCEEDED
+  GENERAL
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts              Account[]
+  transactions          Transaction[]
+  categories            Category[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+  subscriptions         Subscription[]
+  investments           Investment[]
+  creditCards           CreditCard[]
+  fixedDeposits         FixedDeposit[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  settings              UserSettings?
+  tags                  Tag[]
+  debts                 Debt[]
+  loans                 Loan[]
+}
+
+model UserSettings {
+  id         String   @id @default(uuid())
+  currency   String   @default("INR")
+  dateFormat String   @default("dd/MM/yyyy")
+  locale     String   @default("en-IN")
+  theme      String   @default("system")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id             String        @id @default(uuid())
+  name           String
+  type           AccountType
+  institution    String?
+  accountNumber  String?
+  balance        Decimal       @default(0) @db.Decimal(15, 2)
+  openingBalance Decimal       @default(0) @db.Decimal(15, 2)
+  currency       String        @default("INR")
+  interestRate   Decimal?      @db.Decimal(5, 2)
+  creditLimit    Decimal?      @db.Decimal(15, 2)
+  closingDate    Int?
+  dueDate        Int?
+  color          String        @default("#6366f1")
+  icon           String        @default("wallet")
+  notes          String?
+  status         AccountStatus @default(ACTIVE)
+  isDefault      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  userId                String
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          Transaction[]
+  transfersTo           Transaction[]         @relation("TransferToAccount")
+  recurringTransactions RecurringTransaction[]
+  subscriptions         Subscription[]
+  creditCard            CreditCard?
+  debts                 Debt[]
+  loans                 Loan[]
+
+  @@index([userId])
+  @@index([type])
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  date        DateTime          @default(now())
+  amount      Decimal           @db.Decimal(15, 2)
+  type        TransactionType
+  description String?
+  merchant    String?
+  location    String?
+  notes       String?
+  status      TransactionStatus @default(COMPLETED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  accountId              String
+  account                Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  categoryId             String?
+  category               Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId                 String
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transferToAccountId    String?
+  transferToAccount      Account?              @relation("TransferToAccount", fields: [transferToAccountId], references: [id], onDelete: SetNull)
+  recurringTransactionId String?
+  recurringTransaction   RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
+
+  tags TransactionTag[]
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([type])
+}
+
+model Category {
+  id           String       @id @default(uuid())
+  name         String
+  type         CategoryType
+  color        String       @default("#6366f1")
+  icon         String       @default("tag")
+  description  String?
+  budgetAmount Decimal?     @db.Decimal(15, 2)
+  order        Int          @default(0)
+  isActive     Boolean      @default(true)
+  isDefault    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  parentId String?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+
+  userId                String
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          Transaction[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+  subscriptions         Subscription[]
+
+  @@index([userId])
+  @@index([parentId])
+  @@index([type])
+}
+
+model Tag {
+  id        String           @id @default(uuid())
+  name      String
+  color     String           @default("#6366f1")
+  createdAt DateTime         @default(now())
+
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions TransactionTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model TransactionTag {
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tagId         String
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([transactionId, tagId])
+}
+
+model RecurringTransaction {
+  id                String          @id @default(uuid())
+  name              String
+  amount            Decimal         @db.Decimal(15, 2)
+  type              TransactionType
+  frequency         Frequency
+  startDate         DateTime
+  endDate           DateTime?
+  nextDate          DateTime
+  lastGeneratedDate DateTime?
+  isActive          Boolean         @default(true)
+  description       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  generatedTransactions Transaction[]
+
+  @@index([userId])
+  @@index([nextDate])
+}
+
+model Subscription {
+  id          String             @id @default(uuid())
+  service     String
+  monthlyCost Decimal            @db.Decimal(15, 2)
+  annualCost  Decimal?           @db.Decimal(15, 2)
+  renewalDate DateTime
+  status      SubscriptionStatus @default(ACTIVE)
+  description String?
+  url         String?
+  icon        String?
+  color       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  accountId  String?
+  account    Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([renewalDate])
+}
+
+model Budget {
+  id        String   @id @default(uuid())
+  amount    Decimal  @db.Decimal(15, 2)
+  spent     Decimal  @default(0) @db.Decimal(15, 2)
+  month     Int
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId])
+  @@index([month, year])
+}
+
+model Investment {
+  id             String         @id @default(uuid())
+  name           String
+  type           InvestmentType
+  investedAmount Decimal        @db.Decimal(15, 2)
+  currentValue   Decimal        @db.Decimal(15, 2)
+  units          Decimal?       @db.Decimal(15, 6)
+  purchaseDate   DateTime
+  notes          String?
+  platform       String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+}
+
+model CreditCard {
+  id                 String   @id @default(uuid())
+  cardName           String
+  lastFourDigits     String?
+  cardNumber         String?
+  cardHolderName     String?
+  expiryDate         String?
+  cvv                String?
+  template           String?  @default("STANDARD")
+  creditLimit        Decimal  @db.Decimal(15, 2)
+  outstandingBalance Decimal  @default(0) @db.Decimal(15, 2)
+  availableCredit    Decimal  @db.Decimal(15, 2)
+  dueDate            Int?
+  statementDate      Int?
+  minimumDue         Decimal? @db.Decimal(15, 2)
+  interestRate       Decimal? @db.Decimal(5, 2)
+  rewardsBalance     Decimal  @default(0) @db.Decimal(15, 2)
+  color              String   @default("#6366f1")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  accountId String  @unique
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FixedDeposit {
+  id             String   @id @default(uuid())
+  bankName       String
+  principal      Decimal  @db.Decimal(15, 2)
+  interestRate   Decimal  @db.Decimal(5, 2)
+  startDate      DateTime
+  maturityDate   DateTime
+  interestEarned Decimal  @default(0) @db.Decimal(15, 2)
+  maturityAmount Decimal  @db.Decimal(15, 2)
+  autoRenewal    Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([maturityDate])
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  type         NotificationType
+  title        String
+  message      String
+  isRead       Boolean          @default(false)
+  scheduledFor DateTime?
+  createdAt    DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model Debt {
+  id                 String    @id @default(uuid())
+  lenderName         String
+  totalBorrowed      Decimal   @db.Decimal(15, 2)
+  outstandingBalance Decimal   @db.Decimal(15, 2)
+  dueDate            DateTime?
+  interestRate       Decimal?  @db.Decimal(5, 2)
+  color              String    @default("#a855f7")
+  notes              String?
+  status             String    @default("ACTIVE")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String?
+  account   Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model Loan {
+  id                 String    @id @default(uuid())
+  borrowerName       String
+  totalLent          Decimal   @db.Decimal(15, 2)
+  outstandingBalance Decimal   @db.Decimal(15, 2)
+  dueDate            DateTime?
+  interestRate       Decimal?  @db.Decimal(5, 2)
+  color              String    @default("#f97316")
+  notes              String?
+  status             String    @default("ACTIVE")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String?
+  account   Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
