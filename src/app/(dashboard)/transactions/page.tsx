@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
+import { CategorySelector } from '@/components/shared/category-selector';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -570,24 +571,13 @@ export default function TransactionsPage() {
             <div className="grid grid-cols-1 gap-4">
               {/* Category selector for standard transactions */}
               {txType !== 'TRANSFER' && txType !== 'CREDIT_CARD_PAYMENT' ? (
-                <div className="space-y-1.5">
-                  <Label className="label-uppercase text-muted-foreground">Category Category</Label>
-                  <Select value={categoryId} onValueChange={(val) => setCategoryId(val || '')} disabled={isPending}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select Category">
-                        {categoryId === 'NONE' || !categoryId ? 'No Category' : categories.find(c => c.id === categoryId)?.name || 'Select Category'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NONE">No Category</SelectItem>
-                      {categories
-                        .filter((c) => c.type === (txType === 'INCOME' || txType === 'REFUND' || txType === 'INTEREST' || txType === 'DIVIDEND' ? 'INCOME' : 'EXPENSE'))
-                        .map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <CategorySelector
+                  categories={categories as any}
+                  value={categoryId}
+                  onChange={setCategoryId}
+                  typeFilter={['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(txType) ? 'INCOME' : 'EXPENSE'}
+                  disabled={isPending}
+                />
               ) : (
                 // Transfer destination selector
                 <div className="space-y-1.5">

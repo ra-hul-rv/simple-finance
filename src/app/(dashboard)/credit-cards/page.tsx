@@ -24,8 +24,25 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress, ProgressTrack, ProgressIndicator } from '@/components/ui/progress';
-import { CreditCard as CardIcon, Plus, Calendar, Loader2, Award, Edit2, Trash2, ShieldCheck, Flame, Percent } from 'lucide-react';
+import { CreditCard as CardIcon, Plus, Calendar, Loader2, Award, Edit2, Trash2, ShieldCheck, Flame, Percent, GripVertical, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +55,7 @@ interface CreditCard {
   expiryDate: string | null;
   cvv: string | null;
   template: string | null;
+  notes: string | null;
   creditLimit: number;
   outstandingBalance: number;
   availableCredit: number;
@@ -55,6 +73,231 @@ interface Account {
   id: string;
   name: string;
   type: string;
+}
+
+const CARD_TEMPLATES = [
+  { id: 'STANDARD', name: 'Standard (Theme Color)', brand: 'visa', bg: 'bg-gradient-to-br from-slate-900 to-indigo-950', text: 'text-white' },
+  { id: 'SBI_CASHBACK', name: 'SBI Cashback Credit Card', brand: 'visa', bg: 'bg-gradient-to-br from-[#0c2340] via-[#1d428a] to-[#008080]', text: 'text-white', logoText: 'SBI Card', cardTitle: 'CASHBACK' },
+  { id: 'ICICI_RUBYX', name: 'ICICI Rubyx Credit Card', brand: 'visa', bg: 'bg-gradient-to-br from-[#1e1e24] via-[#2f3e46] to-[#5c677d]', text: 'text-[#e5c158]', logoText: 'ICICI Bank', cardTitle: 'RUBYX' },
+  { id: 'AMEX_TRAVEL', name: 'American Express Platinum Travel', brand: 'amex', bg: 'bg-gradient-to-br from-[#b8c6db] via-[#f5f7fa] to-[#a3bded]', text: 'text-slate-800', logoText: 'AMEX', cardTitle: 'PLATINUM TRAVEL' },
+  { id: 'ICICI_AMAZON_PAY', name: 'ICICI Amazon Pay Credit Card', brand: 'visa', bg: 'bg-gradient-to-br from-[#111] via-[#232f3e] to-[#37475a]', text: 'text-[#ff9900]', logoText: 'Amazon Pay | ICICI', cardTitle: 'Amazon Pay' },
+  { id: 'FEDERAL_SCAPIA', name: 'Federal Bank Scapia Credit Card', brand: 'visa', bg: 'bg-gradient-to-br from-[#030712] via-[#0b1528] to-[#122b54]', text: 'text-[#10b981]', logoText: 'Scapia | Federal', cardTitle: 'SCAPIA' },
+  { id: 'AXIS_FLIPKART', name: 'Axis Flipkart Credit Card', brand: 'master', bg: 'bg-gradient-to-br from-[#00539c] via-[#0074d9] to-[#ffaa00]', text: 'text-white', logoText: 'Axis Bank | Flipkart', cardTitle: 'Flipkart' },
+  { id: 'AXIS_MYZONE', name: 'Axis My Zone Credit Card', brand: 'master', bg: 'bg-gradient-to-br from-[#800020] via-[#a8204e] to-[#ff6b8b]', text: 'text-white', logoText: 'Axis Bank', cardTitle: 'MY ZONE' },
+  { id: 'AXIS_AIRTEL', name: 'Axis Airtel Credit Card', brand: 'master', bg: 'bg-gradient-to-br from-[#e11d48] via-[#4c0519] to-[#0f172a]', text: 'text-white', logoText: 'Axis Bank | airtel', cardTitle: 'Airtel' },
+  { id: 'HDFC_TATA_NEU', name: 'HDFC Tata Neu Card Infinity', brand: 'rupay', bg: 'bg-gradient-to-br from-[#09090b] via-[#18181b] to-[#c2410c]', text: 'text-[#eab308]', logoText: 'HDFC Bank | Tata Neu', cardTitle: 'INFINITY' },
+  { id: 'YES_BANK_KIWI', name: 'Yes Bank Kiwi Credit Card', brand: 'rupay', bg: 'bg-gradient-to-br from-[#0284c7] via-[#0f172a] to-[#22c55e]', text: 'text-white', logoText: 'Kiwi | YES BANK', cardTitle: 'Kiwi' },
+  { id: 'AMEX_REWARDS', name: 'American Express Membership Rewards', brand: 'amex', bg: 'bg-gradient-to-br from-[#ffd700] via-[#b8860b] to-[#18181b]', text: 'text-yellow-100', logoText: 'AMEX', cardTitle: 'MRCC' },
+  { id: 'SBM_NOVIO', name: 'SBM Novio Credit Card', brand: 'visa', bg: 'bg-gradient-to-br from-[#1a1c29] via-[#2c3e50] to-[#000000]', text: 'text-white', logoText: 'SBM Bank | Novio', cardTitle: 'NOVIO' },
+];
+
+function getOrdinalSuffix(i: number) {
+  const j = i % 10;
+  const k = i % 100;
+  if (j == 1 && k != 11) return "st";
+  if (j == 2 && k != 12) return "nd";
+  if (j == 3 && k != 13) return "rd";
+  return "th";
+}
+
+function SortableCreditCard({
+  card,
+  handleOpenEditDialog,
+  handleDeleteCard,
+  setViewingNotes,
+  setIsNotesDialogOpen,
+}: {
+  card: CreditCard;
+  handleOpenEditDialog: (c: CreditCard) => void;
+  handleDeleteCard: (id: string) => void;
+  setViewingNotes: (c: CreditCard) => void;
+  setIsNotesDialogOpen: (open: boolean) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  const usagePct = (card.outstandingBalance / card.creditLimit) * 100;
+  const cardTemplate = CARD_TEMPLATES.find((t) => t.id === (card.template || 'STANDARD')) || CARD_TEMPLATES[0];
+
+  return (
+    <Card ref={setNodeRef} style={style} className={cn("glass relative overflow-hidden border-border bg-card/60 backdrop-blur-xl transition-all duration-200", isDragging ? 'shadow-2xl scale-105' : 'card-hover')}>
+      <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: card.color || '#ea580c' }} />
+
+      <CardHeader className="pl-6 pb-2">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div {...attributes} {...listeners} className="cursor-grab hover:bg-white/10 p-1 rounded -ml-2 text-muted-foreground">
+                <GripVertical className="h-4 w-4" />
+              </div>
+              <CardTitle className="text-lg font-bold">
+                {card.cardName}
+              </CardTitle>
+              {card.lastFourDigits && (
+                <span className="text-xs text-muted-foreground font-mono">
+                  (•••• {card.lastFourDigits})
+                </span>
+              )}
+            </div>
+            <CardDescription className="text-xs ml-6">Linked Ledger: {card.account.name}</CardDescription>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-7 w-7 rounded hover:bg-accent" onClick={() => handleOpenEditDialog(card)}>
+              <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteCard(card.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pl-6 space-y-4">
+        {/* Visual Glassmorphic Card Details */}
+        <div
+          onClick={() => { setViewingNotes(card); setIsNotesDialogOpen(true); }}
+          className={cn(
+            "rounded-xl p-5 flex flex-col justify-between relative overflow-hidden shadow-lg border border-white/20 aspect-[1.8/1] cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl group",
+            cardTemplate.bg,
+            cardTemplate.text
+          )}
+          style={cardTemplate.id === 'STANDARD' ? { background: `linear-gradient(135deg, ${card.color}bb, #171717f0)` } : {}}
+        >
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-white/5 transition-colors z-0 pointer-events-none" />
+          {/* Decorative elements for premium feel */}
+          {cardTemplate.id === 'STANDARD' && <div className="absolute top-0 right-0 w-32 h-32 rounded-full filter blur-3xl opacity-20" style={{ backgroundColor: card.color }} />}
+          {cardTemplate.brand === 'amex' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-[40px] border-black/5 rounded-full filter blur-sm pointer-events-none" />}
+          <div className="absolute w-[200%] h-full top-0 -left-1/2 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 transform -rotate-45 pointer-events-none" />
+
+          <div className="flex justify-between items-start z-10">
+            <div className="flex flex-col">
+              <span className="text-[10px] opacity-70 uppercase tracking-widest">{cardTemplate.logoText || 'Card Provider'}</span>
+              <span className="font-semibold text-sm tracking-wide">{cardTemplate.cardTitle || card.cardName}</span>
+            </div>
+            {/* Brand Logo */}
+            <div className="flex flex-col items-end opacity-90">
+               {cardTemplate.brand === 'visa' && <span className="font-bold italic text-lg tracking-wider">VISA</span>}
+               {cardTemplate.brand === 'master' && (
+                 <div className="flex items-center -space-x-2">
+                   <div className="w-5 h-5 rounded-full bg-red-500/80 mix-blend-multiply" />
+                   <div className="w-5 h-5 rounded-full bg-yellow-500/80 mix-blend-multiply" />
+                 </div>
+               )}
+               {cardTemplate.brand === 'amex' && <span className="font-bold text-xs border border-current px-1 tracking-wider uppercase">Amex</span>}
+               {cardTemplate.brand === 'rupay' && <span className="font-bold italic text-sm tracking-widest text-orange-400">RuPay</span>}
+            </div>
+          </div>
+
+          <div className="flex-1 mt-6 z-10 flex flex-col justify-end">
+            <p className="text-[10px] opacity-60 tracking-wider">CARD NUMBER</p>
+            <p className="text-lg md:text-xl font-mono tracking-[0.2em] md:tracking-[0.25em] drop-shadow-md">
+              {card.cardNumber ? (card.cardNumber.length === 16 ? card.cardNumber.match(/.{1,4}/g)?.join(' ') : card.cardNumber) : `•••• •••• •••• ${card.lastFourDigits || '0000'}`}
+            </p>
+          </div>
+
+          <div className="flex justify-between items-end text-xs z-10 mt-4">
+            <div className="space-y-1">
+              <p className="text-[9px] opacity-60 uppercase tracking-wider">Card Holder</p>
+              <p className="font-medium tracking-wide truncate max-w-[150px] uppercase drop-shadow-sm">{card.cardHolderName || 'VALID USER'}</p>
+            </div>
+            <div className="space-y-1 text-right">
+              <p className="text-[9px] opacity-60 uppercase tracking-wider">Valid Thru</p>
+              <p className="font-medium font-mono drop-shadow-sm">{card.expiryDate || '12/29'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Outstanding & Limit Metrics */}
+        <div className="grid grid-cols-2 gap-4 text-sm pt-2">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Outstanding</p>
+            <p className="text-base font-bold text-destructive">{formatCurrency(card.outstandingBalance)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Credit Limit</p>
+            <p className="text-base font-bold">{formatCurrency(card.creditLimit)}</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Credit Usage</span>
+            <span className={usagePct > 80 ? 'text-destructive font-medium' : ''}>{usagePct.toFixed(1)}%</span>
+          </div>
+          <Progress 
+            value={usagePct} 
+            className="h-2"
+            trackClassName="bg-white/5"
+            indicatorClassName={usagePct > 80 ? 'bg-destructive' : 'gradient-primary'}
+          />
+        </div>
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-y-3 gap-x-4 pt-2">
+          {card.statementDate && (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-white/5 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Statement</p>
+                <p className="font-medium">{card.statementDate}{getOrdinalSuffix(card.statementDate)}</p>
+              </div>
+            </div>
+          )}
+          {card.dueDate && (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-destructive/10 text-destructive">
+                <Calendar className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Due Date</p>
+                <p className="font-medium text-destructive">{card.dueDate}{getOrdinalSuffix(card.dueDate)}</p>
+              </div>
+            </div>
+          )}
+          {card.interestRate && (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-orange-500/10 text-orange-500">
+                <Percent className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Interest Rate</p>
+                <p className="font-medium">{card.interestRate}%</p>
+              </div>
+            </div>
+          )}
+          {card.rewardsBalance > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-yellow-500/10 text-yellow-500">
+                <Award className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Rewards</p>
+                <p className="font-medium">{formatCurrency(card.rewardsBalance)}</p>
+              </div>
+            </div>
+          )}
+          {card.minimumDue && (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
+                <ShieldCheck className="h-3.5 w-3.5" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Min Due</p>
+                <p className="font-medium">{formatCurrency(card.minimumDue)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function CreditCardsPage() {
@@ -83,6 +326,22 @@ export default function CreditCardsPage() {
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
   const [template, setTemplate] = useState('STANDARD');
+  const [notes, setNotes] = useState('');
+
+  // Notes Dialog State
+  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
+  const [viewingNotes, setViewingNotes] = useState<CreditCard | null>(null);
+
+  // Search and Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [brandFilter, setBrandFilter] = useState('ALL');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchCreditCards = async () => {
     try {
@@ -105,6 +364,47 @@ export default function CreditCardsPage() {
     fetchCreditCards();
   }, []);
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = cards.findIndex((item) => item.id === active.id);
+      const newIndex = cards.findIndex((item) => item.id === over.id);
+
+      const newCards = arrayMove(cards, oldIndex, newIndex);
+      
+      // Update local state immediately
+      const updatedCards = newCards.map((c, index) => ({ ...c, order: index }));
+      setCards(updatedCards);
+
+      // Save to backend
+      try {
+        const payload = updatedCards.map((c) => ({ id: c.id, order: c.order }));
+        await fetch('/api/credit-cards/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.error('Failed to reorder cards', err);
+        toast.error('Failed to save order');
+      }
+    }
+  };
+
+  const filteredCards = cards.filter((card) => {
+    const matchesSearch = card.cardName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (card.cardNumber && card.cardNumber.includes(searchQuery)) ||
+                          (card.lastFourDigits && card.lastFourDigits.includes(searchQuery));
+    if (!matchesSearch) return false;
+
+    if (brandFilter !== 'ALL') {
+      const template = CARD_TEMPLATES.find(t => t.id === (card.template || 'STANDARD')) || CARD_TEMPLATES[0];
+      if (template.brand !== brandFilter) return false;
+    }
+
+    return true;
+  });
+
   const handleOpenAddDialog = () => {
     if (accounts.length === 0) {
       toast.error('Please create a Credit Card type Account first');
@@ -118,6 +418,7 @@ export default function CreditCardsPage() {
     setExpiryDate('');
     setCvv('');
     setTemplate('STANDARD');
+    setNotes('');
     setCreditLimit('');
     setOutstandingBalance('');
     setDueDate('');
@@ -139,6 +440,7 @@ export default function CreditCardsPage() {
     setExpiryDate(card.expiryDate || '');
     setCvv(card.cvv || '');
     setTemplate(card.template || 'STANDARD');
+    setNotes(card.notes || '');
     setCreditLimit(card.creditLimit.toString());
     setOutstandingBalance(card.outstandingBalance.toString());
     setDueDate(card.dueDate?.toString() || '');
@@ -173,6 +475,7 @@ export default function CreditCardsPage() {
       expiryDate: expiryDate || null,
       cvv: cvv || null,
       template: template || 'STANDARD',
+      notes: notes || null,
       creditLimit: parseFloat(creditLimit),
       outstandingBalance: parseFloat(outstandingBalance || '0'),
       dueDate: dueDate ? parseInt(dueDate) : null,
@@ -269,146 +572,58 @@ export default function CreditCardsPage() {
         />
       </div>
 
-      {/* Virtual Credit Cards Render Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {cards.map((card) => {
-          const usagePct = (card.outstandingBalance / card.creditLimit) * 100;
-          return (
-            <Card key={card.id} className="glass relative overflow-hidden border-border bg-card/60 backdrop-blur-xl transition-all duration-200 card-hover">
-              <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: card.color || '#ea580c' }} />
-
-              <CardHeader className="pl-6 pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg font-bold">
-                        {card.cardName}
-                      </CardTitle>
-                      {card.lastFourDigits && (
-                        <span className="text-xs text-muted-foreground font-mono">
-                          (•••• {card.lastFourDigits})
-                        </span>
-                      )}
-                    </div>
-                    <CardDescription className="text-xs">Linked Ledger: {card.account.name}</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 rounded hover:bg-accent"
-                      onClick={() => handleOpenEditDialog(card)}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteCard(card.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="pl-6 space-y-4">
-                {/* Visual Glassmorphic Card Details */}
-                <div
-                  className="rounded-xl p-5 text-white flex flex-col justify-between relative overflow-hidden shadow-lg border border-white/10"
-                  style={{
-                    background: `linear-gradient(135deg, ${card.color}bb, #171717f0)`,
-                  }}
-                >
-                  <div className="absolute top-0 right-0 w-32 h-32 rounded-full filter blur-3xl opacity-20" style={{ backgroundColor: card.color }} />
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-white/60 uppercase tracking-widest">Card Provider</span>
-                      <span className="font-semibold text-sm">{card.cardName}</span>
-                    </div>
-                    <CardIcon className="h-7 w-7 opacity-80" />
-                  </div>
-
-                  <div className="my-6">
-                    <p className="text-[10px] text-white/50 tracking-wider">CARD NUMBER</p>
-                    <p className="text-base font-mono tracking-widest mt-0.5">
-                      •••• •••• •••• {card.lastFourDigits || '0000'}
-                    </p>
-                  </div>
-
-                  <div className="flex justify-between items-end text-xs">
-                    <div>
-                      <p className="text-[9px] text-white/40 uppercase">Statement Date</p>
-                      <p className="font-semibold font-mono">{card.statementDate ? `${card.statementDate}th` : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-white/40 uppercase">Payment Due</p>
-                      <p className="font-semibold font-mono">{card.dueDate ? `${card.dueDate}th` : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-white/40 uppercase">APR Interest</p>
-                      <p className="font-semibold font-mono">{card.interestRate ? `${card.interestRate}%` : 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Outstanding & Limit Metrics */}
-                <div className="grid grid-cols-2 gap-4 text-sm pt-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Outstanding</p>
-                    <p className="text-base font-bold text-destructive">{formatCurrency(card.outstandingBalance)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Credit Limit</p>
-                    <p className="text-base font-bold">{formatCurrency(card.creditLimit)}</p>
-                  </div>
-                </div>
-
-                {/* Utilization Progress Bar */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Credit Utilization Ratio</span>
-                    <span className={cn(usagePct > 35 ? "text-destructive font-bold" : "")}>{usagePct.toFixed(1)}%</span>
-                  </div>
-                  <Progress value={Math.min(usagePct, 100)} className="w-full">
-                    <ProgressTrack className="h-1.5 bg-muted rounded-full overflow-hidden w-full">
-                      <ProgressIndicator
-                        className={cn(
-                          "h-full transition-all",
-                          usagePct > 35 ? "bg-destructive" : usagePct > 20 ? "bg-amber-500" : "bg-success"
-                        )}
-                        style={{ width: `${Math.min(usagePct, 100)}%` }}
-                      />
-                    </ProgressTrack>
-                  </Progress>
-                </div>
-
-                {/* Extra Stats Footer */}
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs text-muted-foreground">
-                  <div>
-                    <p className="font-semibold text-foreground">{formatCurrency(card.availableCredit)}</p>
-                    <p>Available</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground flex items-center gap-0.5"><Award className="h-3 w-3 text-amber-500" /> {card.rewardsBalance.toLocaleString()} pts</p>
-                    <p>Rewards</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{card.minimumDue ? formatCurrency(card.minimumDue) : 'N/A'}</p>
-                    <p>Min Due</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        {cards.length === 0 && (
-          <div className="col-span-2 text-center py-10 text-muted-foreground text-sm">
-            No credit cards linked yet. Click "Link Card" to configure templates.
-          </div>
-        )}
+      {/* Filters and Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card/40 p-4 rounded-xl border border-white/5 backdrop-blur-md">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search cards..." 
+            className="pl-9 bg-white/5 border-white/10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">Brand:</Label>
+          <Select value={brandFilter} onValueChange={(val) => setBrandFilter(val || 'ALL')}>
+            <SelectTrigger className="w-[140px] bg-white/5 border-white/10">
+              <SelectValue placeholder="All Brands" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Brands</SelectItem>
+              <SelectItem value="visa">Visa</SelectItem>
+              <SelectItem value="master">Mastercard</SelectItem>
+              <SelectItem value="amex">Amex</SelectItem>
+              <SelectItem value="rupay">RuPay</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {/* Virtual Credit Cards Render Grid */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SortableContext items={filteredCards.map(c => c.id)} strategy={rectSortingStrategy}>
+            {filteredCards.map((card) => (
+              <SortableCreditCard
+                key={card.id}
+                card={card}
+                handleOpenEditDialog={handleOpenEditDialog}
+                handleDeleteCard={handleDeleteCard}
+                setViewingNotes={setViewingNotes}
+                setIsNotesDialogOpen={setIsNotesDialogOpen}
+              />
+            ))}
+          </SortableContext>
+          {filteredCards.length === 0 && (
+            <div className="col-span-2 text-center py-10 text-muted-foreground text-sm">
+              {cards.length === 0 
+                ? 'No credit cards linked yet. Click "Link Card" to configure templates.' 
+                : 'No cards match your current search/filters.'}
+            </div>
+          )}
+        </div>
+      </DndContext>
 
       {/* Add/Edit Card Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -420,26 +635,93 @@ export default function CreditCardsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground">Card Name</Label>
+                <Label className="label-uppercase text-muted-foreground">Card Template</Label>
+                <Select value={template} onValueChange={(val) => setTemplate(val || 'STANDARD')} disabled={isPending}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARD_TEMPLATES.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="label-uppercase text-muted-foreground">Card Name (Alias)</Label>
+                  <Input
+                    placeholder="e.g. Shopping Card"
+                    value={cardName}
+                    onChange={(e) => setCardName(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="label-uppercase text-muted-foreground">Cardholder Name</Label>
+                  <Input
+                    placeholder="e.g. John Doe"
+                    value={cardHolderName}
+                    onChange={(e) => setCardHolderName(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="label-uppercase text-muted-foreground">Card Number (Optional)</Label>
                 <Input
-                  placeholder="e.g. Amazon Pay Card"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
+                  placeholder="e.g. 4111 1111 1111 1111"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
                   disabled={isPending}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground">Last 4 Digits</Label>
-                <Input
-                  placeholder="e.g. 4820"
-                  maxLength={4}
-                  value={lastFourDigits}
-                  onChange={(e) => setLastFourDigits(e.target.value)}
-                  disabled={isPending}
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="label-uppercase text-muted-foreground">Last 4 (Auto)</Label>
+                  <Input
+                    placeholder="e.g. 1111"
+                    maxLength={4}
+                    value={lastFourDigits}
+                    onChange={(e) => setLastFourDigits(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="label-uppercase text-muted-foreground">Expiry (MM/YY)</Label>
+                  <Input
+                    placeholder="12/29"
+                    value={expiryDate}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="label-uppercase text-muted-foreground">CVV</Label>
+                  <Input
+                    placeholder="123"
+                    type="password"
+                    maxLength={4}
+                    value={cvv}
+                    onChange={(e) => setCvv(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="label-uppercase text-muted-foreground">Notes (Optional)</Label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="e.g. Lounge access details, customer care number..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={isPending}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -554,6 +836,34 @@ export default function CreditCardsPage() {
             </Button>
             <Button onClick={handleSaveCard} disabled={isPending} className="gradient-primary">
               {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : 'Save Card Details'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Notes Dialog */}
+      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] glass border-border bg-card/90 backdrop-blur-xl">
+          <DialogHeader>
+            <DialogTitle>Card Notes & Details</DialogTitle>
+            <DialogDescription>
+              {viewingNotes?.cardName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {viewingNotes?.notes ? (
+              <div className="whitespace-pre-wrap text-sm text-foreground bg-white/5 p-4 rounded-xl border border-white/10">
+                {viewingNotes.notes}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground text-center italic py-4">
+                No notes have been added for this card yet.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNotesDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

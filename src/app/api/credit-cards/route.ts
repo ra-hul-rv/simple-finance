@@ -11,6 +11,7 @@ const creditCardSchema = z.object({
   expiryDate: z.string().optional().nullable(),
   cvv: z.string().optional().nullable(),
   template: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
   creditLimit: z.number().positive('Limit must be positive'),
   outstandingBalance: z.number().nonnegative('Outstanding balance must be non-negative'),
   dueDate: z.number().min(1).max(31).optional().nullable(),
@@ -34,7 +35,7 @@ export async function GET() {
       include: {
         account: true,
       },
-      orderBy: { cardName: 'asc' },
+      orderBy: [{ order: 'asc' }, { cardName: 'asc' }],
     });
 
     const formatted = cards.map((c: any) => ({
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
         expiryDate: validated.expiryDate,
         cvv: validated.cvv,
         template: validated.template,
+        notes: validated.notes,
         creditLimit: validated.creditLimit,
         outstandingBalance: validated.outstandingBalance,
         availableCredit,

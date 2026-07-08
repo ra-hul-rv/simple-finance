@@ -23,17 +23,25 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  ChevronRight,
-  FolderOpen,
-  ArrowLeft,
-  Loader2,
-  Info,
-} from 'lucide-react';
+import { Plus, Tag, Edit2, Trash2, Loader2, ChevronRight, LayoutList, GripVertical, FolderOpen, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Category {
   id: string;
@@ -44,6 +52,70 @@ interface Category {
   description: string | null;
   budgetAmount: number | null;
   parentId: string | null;
+}
+
+function SortableCategory({
+  cat,
+  isSelected,
+  onClick,
+  onEdit,
+  onDelete,
+}: {
+  cat: Category;
+  isSelected: boolean;
+  onClick: () => void;
+  onEdit: (cat: Category) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onClick}
+      className={`flex items-center justify-between rounded-lg p-3 text-sm font-semibold transition-all duration-200 cursor-pointer ${
+        isSelected
+          ? 'bg-primary/15 text-primary shadow-sm border border-primary/20'
+          : 'hover:bg-accent/40 text-muted-foreground hover:text-foreground border border-transparent'
+      }`}
+    >
+      <div className="flex items-center gap-2.5 truncate">
+        <div {...attributes} {...listeners} className="cursor-grab hover:bg-black/10 p-1 rounded -ml-1 text-muted-foreground" onClick={e => e.stopPropagation()}>
+          <GripVertical className="h-4 w-4" />
+        </div>
+        <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+        <span className="truncate">{cat.name}</span>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(cat);
+          }}
+          className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(cat.id);
+          }}
+          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+        <ChevronRight className="h-4 w-4 ml-1 opacity-65" />
+      </div>
+    </div>
+  );
 }
 
 export default function CategoriesPage() {
@@ -66,6 +138,40 @@ export default function CategoriesPage() {
   const [icon, setIcon] = useState('tag');
   const [budgetAmount, setBudgetAmount] = useState('');
   const [parentId, setParentId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = categories.findIndex((item) => item.id === active.id);
+      const newIndex = categories.findIndex((item) => item.id === over.id);
+
+      const newCategories = arrayMove(categories, oldIndex, newIndex);
+      
+      // Update local state immediately based on new order of ALL categories
+      // But we only want to update order relative to peers. The simplest way is to reassign order sequentially.
+      const updatedCategories = newCategories.map((c, index) => ({ ...c, order: index }));
+      setCategories(updatedCategories);
+
+      try {
+        const payload = updatedCategories.map((c) => ({ id: c.id, order: c.order }));
+        await fetch('/api/categories/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.error('Failed to reorder categories', err);
+        toast.error('Failed to save order');
+      }
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -206,46 +312,23 @@ export default function CategoriesPage() {
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary font-bold">{roots.length}</span>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
-              {roots.map((cat) => (
-                <div
-                  key={cat.id}
-                  onClick={() => {
-                    setSelectedRootId(cat.id);
-                    setSelectedSub1Id(null);
-                  }}
-                  className={`flex items-center justify-between rounded-lg p-3 text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                    selectedRootId === cat.id
-                      ? 'bg-primary/15 text-primary shadow-sm border border-primary/20'
-                      : 'hover:bg-accent/40 text-muted-foreground hover:text-foreground border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                    <span className="truncate">{cat.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEditDialog(cat);
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={roots.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                  {roots.map((cat) => (
+                    <SortableCategory
+                      key={cat.id}
+                      cat={cat}
+                      isSelected={selectedRootId === cat.id}
+                      onClick={() => {
+                        setSelectedRootId(cat.id);
+                        setSelectedSub1Id(null);
                       }}
-                      className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCategory(cat.id);
-                      }}
-                      className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                    <ChevronRight className="h-4 w-4 ml-1 opacity-65" />
-                  </div>
-                </div>
-              ))}
+                      onEdit={handleOpenEditDialog}
+                      onDelete={handleDeleteCategory}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
               {roots.length === 0 && (
                 <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
                   <FolderOpen className="h-8 w-8 mb-2 opacity-50" />
@@ -277,43 +360,20 @@ export default function CategoriesPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
               {selectedRootId ? (
-                subLevel1.map((cat) => (
-                  <div
-                    key={cat.id}
-                    onClick={() => setSelectedSub1Id(cat.id)}
-                    className={`flex items-center justify-between rounded-lg p-3 text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                      selectedSub1Id === cat.id
-                        ? 'bg-primary/15 text-primary shadow-sm border border-primary/20'
-                        : 'hover:bg-accent/40 text-muted-foreground hover:text-foreground border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0 animate-pulse-soft" style={{ backgroundColor: cat.color }} />
-                      <span className="truncate">{cat.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEditDialog(cat);
-                        }}
-                        className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCategory(cat.id);
-                        }}
-                        className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                      <ChevronRight className="h-4 w-4 ml-1 opacity-65" />
-                    </div>
-                  </div>
-                ))
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={subLevel1.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    {subLevel1.map((cat) => (
+                      <SortableCategory
+                        key={cat.id}
+                        cat={cat}
+                        isSelected={selectedSub1Id === cat.id}
+                        onClick={() => setSelectedSub1Id(cat.id)}
+                        onEdit={handleOpenEditDialog}
+                        onDelete={handleDeleteCategory}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                   Select a root category to view sub-levels
@@ -357,31 +417,20 @@ export default function CategoriesPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
               {selectedSub1Id ? (
-                subLevel2.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between rounded-lg p-3 text-sm font-semibold border border-border/30 bg-background/25"
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                      <span className="truncate">{cat.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => handleOpenEditDialog(cat)}
-                        className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(cat.id)}
-                        className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={subLevel2.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    {subLevel2.map((cat) => (
+                      <SortableCategory
+                        key={cat.id}
+                        cat={cat}
+                        isSelected={false}
+                        onClick={() => {}}
+                        onEdit={handleOpenEditDialog}
+                        onDelete={handleDeleteCategory}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                   Select a first level subcategory

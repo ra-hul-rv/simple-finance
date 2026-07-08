@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
+import { CategorySelector } from '@/components/shared/category-selector';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -334,21 +335,15 @@ export default function SubscriptionsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground">Category</Label>
-                <Select value={categoryId} onValueChange={(val) => setCategoryId(val || '')} disabled={isPending}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Category">
-                      {categories.find(c => c.id === categoryId)?.name || 'Select Category'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              <CategorySelector
+                categories={categories as any}
+                value={categoryId}
+                onChange={setCategoryId}
+                typeFilter="EXPENSE"
+                disabled={isPending}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">

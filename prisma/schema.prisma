@@ -352,6 +352,7 @@ model CreditCard {
   expiryDate         String?
   cvv                String?
   template           String?  @default("STANDARD")
+  notes              String?  @db.Text
   creditLimit        Decimal  @db.Decimal(15, 2)
   outstandingBalance Decimal  @default(0) @db.Decimal(15, 2)
   availableCredit    Decimal  @db.Decimal(15, 2)
@@ -361,6 +362,7 @@ model CreditCard {
   interestRate       Decimal? @db.Decimal(5, 2)
   rewardsBalance     Decimal  @default(0) @db.Decimal(15, 2)
   color              String   @default("#6366f1")
+  order              Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

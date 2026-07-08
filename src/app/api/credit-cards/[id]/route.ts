@@ -11,6 +11,7 @@ const creditCardUpdateSchema = z.object({
   expiryDate: z.string().optional().nullable(),
   cvv: z.string().optional().nullable(),
   template: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
   creditLimit: z.number().positive(),
   outstandingBalance: z.number().nonnegative(),
   dueDate: z.number().min(1).max(31).optional().nullable(),
