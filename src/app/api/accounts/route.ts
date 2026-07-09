@@ -21,16 +21,16 @@ const accountSchema = z.object({
     'NPS',
     'OTHER',
   ]),
-  institution: z.string().optional(),
-  accountNumber: z.string().optional(),
+  institution: z.string().nullish(),
+  accountNumber: z.string().nullish(),
   balance: z.number().default(0),
   openingBalance: z.number().default(0),
   currency: z.string().default('INR'),
-  interestRate: z.number().optional(),
-  creditLimit: z.number().optional(),
+  interestRate: z.number().nullish(),
+  creditLimit: z.number().nullish(),
   color: z.string().default('#6366f1'),
   icon: z.string().default('wallet'),
-  notes: z.string().optional(),
+  notes: z.string().nullish(),
 });
 
 export async function GET() {
