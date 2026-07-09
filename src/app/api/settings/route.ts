@@ -8,6 +8,9 @@ const settingsSchema = z.object({
   dateFormat: z.string().min(1),
   locale: z.string().min(1),
   theme: z.string().min(1),
+  showDashboardCharts: z.boolean().optional(),
+  showAccountsCharts: z.boolean().optional(),
+  showBillsCharts: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -30,6 +33,9 @@ export async function GET() {
           dateFormat: 'dd/MM/yyyy',
           locale: 'en-IN',
           theme: 'dark',
+          showDashboardCharts: true,
+          showAccountsCharts: true,
+          showBillsCharts: true,
         },
       });
     }

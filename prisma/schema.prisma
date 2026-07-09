@@ -58,6 +58,7 @@ enum Frequency {
   WEEKLY
   MONTHLY
   QUARTERLY
+  SEMI_ANNUALLY
   YEARLY
 }
 
@@ -123,6 +124,9 @@ model UserSettings {
   dateFormat String   @default("dd/MM/yyyy")
   locale     String   @default("en-IN")
   theme      String   @default("system")
+  showDashboardCharts  Boolean @default(true)
+  showAccountsCharts   Boolean @default(true)
+  showBillsCharts      Boolean @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

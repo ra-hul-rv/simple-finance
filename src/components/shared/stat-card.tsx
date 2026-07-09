@@ -108,7 +108,7 @@ export function StatCard({
                   </span>
                 )}
               </div>
-              {trend !== undefined && (
+              {trend !== undefined && trend !== 0 && (
                 <div className={cn('flex items-center gap-1 text-xs font-medium', getTrendColor())}>
                   {getTrendIcon()}
                   <span>{Math.abs(trend)}%</span>

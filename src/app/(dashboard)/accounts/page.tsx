@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -55,8 +56,25 @@ interface Account {
   notes: string | null;
 }
 
+const CARD_TEMPLATES = [
+  { id: 'STANDARD', label: 'Standard' },
+  { id: 'SBI_CASHBACK', label: 'SBI Cashback' },
+  { id: 'ICICI_RUBYX', label: 'ICICI Rubyx' },
+  { id: 'AMEX_TRAVEL', label: 'Amex Travel' },
+  { id: 'ICICI_AMAZON', label: 'ICICI Amazon Pay' },
+  { id: 'SCAPIA', label: 'Federal Bank Scapia' },
+  { id: 'AXIS_FLIPKART', label: 'Axis Flipkart' },
+  { id: 'AXIS_MYZONE', label: 'Axis MyZone' },
+  { id: 'AXIS_AIRTEL', label: 'Axis Airtel' },
+  { id: 'HDFC_TATA_NEU', label: 'HDFC Tata Neu Infinity' },
+  { id: 'YES_KIWI', label: 'Yes Bank Kiwi' },
+  { id: 'AMEX_REWARDS', label: 'Amex Rewards' },
+  { id: 'SBM_NOVIO', label: 'SBM Novio' },
+];
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [showCharts, setShowCharts] = useState(true);
   const [loading, setLoading] = useState(true);
 
   // Dialog forms
@@ -77,12 +95,30 @@ export default function AccountsPage() {
   const [icon, setIcon] = useState('wallet');
   const [notes, setNotes] = useState('');
 
+  // Credit card form states
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardHolderName, setCardHolderName] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [lastFourDigits, setLastFourDigits] = useState('');
+  const [cardTemplate, setCardTemplate] = useState('STANDARD');
+  const [statementDate, setStatementDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [cardNotes, setCardNotes] = useState('');
+
   const fetchAccounts = async () => {
     try {
       const res = await fetch('/api/accounts');
       if (!res.ok) throw new Error('Failed to load accounts');
       const data = await res.json();
       setAccounts(data);
+
+      const settingsRes = await fetch('/api/settings');
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        setShowCharts(settings.showAccountsCharts ?? true);
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to load accounts');
@@ -108,6 +144,16 @@ export default function AccountsPage() {
     setColor('#6366f1');
     setIcon('wallet');
     setNotes('');
+    setCardName('');
+    setCardNumber('');
+    setCardHolderName('');
+    setExpiryDate('');
+    setCvv('');
+    setLastFourDigits('');
+    setCardTemplate('STANDARD');
+    setStatementDate('');
+    setDueDate('');
+    setCardNotes('');
     setIsDialogOpen(true);
   };
 
@@ -161,6 +207,32 @@ export default function AccountsPage() {
 
         if (!res.ok) throw new Error('Failed to save account');
 
+        const accountData = await res.json();
+
+        if (type === 'CREDIT_CARD' && !editingAccount) {
+          const ccPayload = {
+            cardName: cardName || name,
+            lastFourDigits: lastFourDigits || cardNumber.slice(-4) || '',
+            cardNumber: cardNumber || '',
+            cardHolderName: cardHolderName || '',
+            expiryDate: expiryDate || '',
+            cvv: cvv || '',
+            creditLimit: parseFloat(creditLimit || '0'),
+            outstandingBalance: parseFloat(balance || '0'),
+            statementDate: statementDate ? parseInt(statementDate) : null,
+            dueDate: dueDate ? parseInt(dueDate) : null,
+            template: cardTemplate,
+            notes: cardNotes || null,
+            color: color,
+            linkToAccountId: accountData.id,
+          };
+          await fetch('/api/credit-cards', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ccPayload),
+          });
+        }
+
         toast.success(editingAccount ? 'Account updated' : 'Account created');
         setIsDialogOpen(false);
         fetchAccounts();
@@ -213,9 +285,63 @@ export default function AccountsPage() {
       {/* Aggregate Overview Card */}
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard title="Total Cash & Assets" value={totalAssets} variant="glass" />
-        <StatCard title="Total Debt & Liabilities" value={totalLiabilities} prefix="₹" trend={0} icon={<CreditCard className="h-4 w-4 text-destructive" />} />
+        <StatCard title="Total Debt & Liabilities" value={totalLiabilities} prefix="₹" icon={<CreditCard className="h-4 w-4 text-destructive" />} />
         <StatCard title="Net Balance" value={totalAssets - totalLiabilities} variant="default" />
       </div>
+
+      {showCharts && accounts.length > 0 && (
+        <Card className="glass p-5">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-base font-bold uppercase label-uppercase">Asset Allocation</CardTitle>
+            <CardDescription>Distribution of your positive balance assets across accounts</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 h-[220px] flex flex-row items-center justify-center gap-8">
+            <div className="h-[200px] w-[200px] relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={accounts.map(a => ({
+                      name: a.name,
+                      value: Math.max(0, Number(a.balance)),
+                      color: a.color
+                    })).filter(a => a.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {accounts.map(a => ({
+                      name: a.name,
+                      value: Math.max(0, Number(a.balance)),
+                      color: a.color
+                    })).filter(a => a.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(val) => `₹${Number(val).toLocaleString('en-IN')}`} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[9px] uppercase font-bold tracking-widest text-muted-foreground">Total Cash</span>
+                <span className="text-base font-bold tracking-tight">
+                  ₹{accounts.filter(a => a.balance > 0).reduce((sum, a) => sum + Number(a.balance), 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-2 scrollbar-thin">
+              {accounts.filter(a => a.balance > 0).map(a => (
+                <div key={a.id} className="flex items-center gap-2 text-xs">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+                  <span className="truncate max-w-[120px] font-medium">{a.name}</span>
+                  <span className="text-muted-foreground">({((a.balance / accounts.filter(ac => ac.balance > 0).reduce((sum, ac) => sum + Number(ac.balance), 0)) * 100).toFixed(1)}%)</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex h-64 items-center justify-center">
@@ -324,7 +450,7 @@ export default function AccountsPage() {
 
       {/* Account form Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className={type === 'CREDIT_CARD' ? 'sm:max-w-[550px]' : 'sm:max-w-[425px]'}>
           <DialogHeader>
             <DialogTitle>{editingAccount ? 'Edit Account' : 'Create Account'}</DialogTitle>
             <DialogDescription>
@@ -465,6 +591,124 @@ export default function AccountsPage() {
                 className="bg-background/40 min-h-[60px]"
               />
             </div>
+
+            {/* Credit Card Details */}
+            {type === 'CREDIT_CARD' && (
+              <div className="space-y-4 border-t border-border/40 pt-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Credit Card Details</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Card Name</Label>
+                    <Input
+                      placeholder="e.g. My Rewards Card"
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Card Template</Label>
+                    <Select value={cardTemplate} onValueChange={(val) => setCardTemplate(val || 'STANDARD')} disabled={isPending}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CARD_TEMPLATES.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Card Number</Label>
+                    <Input
+                      placeholder="XXXX XXXX XXXX XXXX"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Card Holder Name</Label>
+                    <Input
+                      placeholder="Full name on card"
+                      value={cardHolderName}
+                      onChange={(e) => setCardHolderName(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Expiry (MM/YY)</Label>
+                    <Input
+                      placeholder="12/28"
+                      value={expiryDate}
+                      onChange={(e) => setExpiryDate(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">CVV</Label>
+                    <Input
+                      type="password"
+                      placeholder="***"
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Last 4 Digits</Label>
+                    <Input
+                      placeholder="5892"
+                      value={lastFourDigits}
+                      onChange={(e) => setLastFourDigits(e.target.value)}
+                      disabled={isPending}
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Statement Date (1-31)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="e.g. 15"
+                      value={statementDate}
+                      onChange={(e) => setStatementDate(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="label-uppercase text-muted-foreground">Due Date (1-31)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="e.g. 5"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="label-uppercase text-muted-foreground">Card Notes</Label>
+                  <Textarea
+                    placeholder="Reward points, billing cycle notes..."
+                    value={cardNotes}
+                    onChange={(e) => setCardNotes(e.target.value)}
+                    disabled={isPending}
+                    className="bg-background/40 min-h-[60px]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>

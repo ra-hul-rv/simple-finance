@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useSession } from 'next-auth/react';
-import { Settings, User, Trash2, Upload, Loader2, KeyRound } from 'lucide-react';
+import { Settings, User, Trash2, Upload, Loader2, KeyRound, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -27,6 +27,11 @@ export default function SettingsPage() {
   const [dateFormat, setDateFormat] = useState('dd/MM/yyyy');
   const [locale, setLocale] = useState('en-IN');
   const [theme, setTheme] = useState('dark');
+
+  // Chart visibility states
+  const [showDashboardCharts, setShowDashboardCharts] = useState(true);
+  const [showAccountsCharts, setShowAccountsCharts] = useState(true);
+  const [showBillsCharts, setShowBillsCharts] = useState(true);
 
   // CSV Import state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -45,6 +50,9 @@ export default function SettingsPage() {
         setDateFormat(data.dateFormat);
         setLocale(data.locale);
         setTheme(data.theme);
+        if (data.showDashboardCharts !== undefined) setShowDashboardCharts(data.showDashboardCharts);
+        if (data.showAccountsCharts !== undefined) setShowAccountsCharts(data.showAccountsCharts);
+        if (data.showBillsCharts !== undefined) setShowBillsCharts(data.showBillsCharts);
       }
 
       const accRes = await fetch('/api/accounts');
@@ -68,7 +76,7 @@ export default function SettingsPage() {
         const res = await fetch('/api/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ currency, dateFormat, locale, theme }),
+          body: JSON.stringify({ currency, dateFormat, locale, theme, showDashboardCharts, showAccountsCharts, showBillsCharts }),
         });
 
         if (!res.ok) throw new Error('Failed to update preferences');
@@ -277,6 +285,55 @@ export default function SettingsPage() {
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Preferences'}
             </Button>
           </CardFooter>
+        </Card>
+
+        {/* Chart Preferences */}
+        <Card className="glass border-border bg-card/60 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-amber-500" />
+              Chart Preferences
+            </CardTitle>
+            <CardDescription>Toggle chart visibility across pages</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div>
+                <span className="font-semibold block text-sm">Dashboard Charts</span>
+                <span className="text-xs text-muted-foreground">Show charts on the dashboard overview</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showDashboardCharts}
+                onChange={(e) => setShowDashboardCharts(e.target.checked)}
+                className="h-4 w-4 accent-amber-500 cursor-pointer"
+              />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer pt-3 border-t border-border/40">
+              <div>
+                <span className="font-semibold block text-sm">Accounts Charts</span>
+                <span className="text-xs text-muted-foreground">Show charts on the accounts page</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showAccountsCharts}
+                onChange={(e) => setShowAccountsCharts(e.target.checked)}
+                className="h-4 w-4 accent-amber-500 cursor-pointer"
+              />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer pt-3 border-t border-border/40">
+              <div>
+                <span className="font-semibold block text-sm">Bills Charts</span>
+                <span className="text-xs text-muted-foreground">Show charts on the bills page</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showBillsCharts}
+                onChange={(e) => setShowBillsCharts(e.target.checked)}
+                className="h-4 w-4 accent-amber-500 cursor-pointer"
+              />
+            </label>
+          </CardContent>
         </Card>
       </div>
 

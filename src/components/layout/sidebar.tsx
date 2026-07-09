@@ -39,8 +39,7 @@ const mainNav = [
 
 const financeNav = [
   { title: 'Budgets', href: '/budgets', icon: PiggyBank },
-  { title: 'Recurring', href: '/recurring', icon: Repeat },
-  { title: 'Subscriptions', href: '/subscriptions', icon: Receipt },
+  { title: 'Bills & Subs', href: '/recurring', icon: Repeat },
   { title: 'Credit Cards', href: '/credit-cards', icon: CreditCard },
   { title: 'Fixed Deposits', href: '/fixed-deposits', icon: Landmark },
   { title: 'Investments', href: '/investments', icon: TrendingUp },

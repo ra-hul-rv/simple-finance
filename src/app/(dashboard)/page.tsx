@@ -214,6 +214,7 @@ export default async function DashboardPage() {
       monthlySpending,
       incomeVsExpense,
       netWorthGrowth,
+      showDashboardCharts: user.settings?.showDashboardCharts ?? true,
     };
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
@@ -321,12 +322,14 @@ export default async function DashboardPage() {
       </div>
 
       {/* Dynamic Visualizations */}
-      <DashboardCharts
-        monthlySpending={data.monthlySpending}
-        incomeVsExpense={data.incomeVsExpense}
-        categoryBreakdown={data.categoryBreakdown}
-        netWorthGrowth={data.netWorthGrowth}
-      />
+      {data.showDashboardCharts && (
+        <DashboardCharts
+          monthlySpending={data.monthlySpending}
+          incomeVsExpense={data.incomeVsExpense}
+          categoryBreakdown={data.categoryBreakdown}
+          netWorthGrowth={data.netWorthGrowth}
+        />
+      )}
 
       {/* Double Column for Lists and Actions */}
       <div className="grid gap-6 lg:grid-cols-3">
