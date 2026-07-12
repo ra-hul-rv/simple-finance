@@ -36,12 +36,10 @@ services:
     networks:
       - simplefinance
     volumes:
-      - uploads:/app/uploads
+      - ./uploads:/app/uploads
 
 volumes:
   postgres_data:
-    driver: local
-  uploads:
     driver: local
 
 networks:

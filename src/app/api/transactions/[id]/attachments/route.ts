@@ -4,9 +4,9 @@ import prisma from '@/lib/prisma';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import path from 'path';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'attachments');
+const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'attachments');
 const ALLOWED_TYPES = [
-  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
   'application/pdf',
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
