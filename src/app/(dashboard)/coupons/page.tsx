@@ -40,9 +40,11 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileUpload } from '@/components/shared/file-upload';
+import { MultipleFileUpload } from '@/components/shared/multiple-file-upload';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { ImageLightbox } from '@/components/shared/image-lightbox';
 import { formatCurrency } from '@/lib/format';
+import { toast } from 'sonner';
 
 interface Coupon {
   id: string;
@@ -83,8 +85,8 @@ export default function CouponsPage() {
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('');
-  const [barcodeFile, setBarcodeFile] = useState<File | null>(null);
-  const [existingBarcodePath, setExistingBarcodePath] = useState<string | null>(null);
+  const [barcodeFiles, setBarcodeFiles] = useState<File[]>([]);
+  const [existingBarcodePaths, setExistingBarcodePaths] = useState<string[]>([]);
 
   // Lightbox / Image Viewer
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -110,6 +112,34 @@ export default function CouponsPage() {
     loadData();
   }, []);
 
+  const initialValues = {
+    title: '',
+    code: '',
+    discountValue: '',
+    discountType: 'PERCENTAGE',
+    merchant: '',
+    expiryDate: '',
+    notes: '',
+    terms: ''
+  };
+
+  const { clearDraft } = useFormDraft(
+    'coupon',
+    initialValues,
+    { title, code, discountValue, discountType, merchant, expiryDate, notes, terms },
+    (vals) => {
+      setTitle(vals.title || '');
+      setCode(vals.code || '');
+      setDiscountValue(vals.discountValue || '');
+      setDiscountType(vals.discountType || 'PERCENTAGE');
+      setMerchant(vals.merchant || '');
+      setExpiryDate(vals.expiryDate || '');
+      setNotes(vals.notes || '');
+      setTerms(vals.terms || '');
+    },
+    isDialogOpen && !editingCoupon
+  );
+
   const handleOpenAddDialog = () => {
     setEditingCoupon(null);
     setTitle('');
@@ -120,8 +150,8 @@ export default function CouponsPage() {
     setExpiryDate('');
     setNotes('');
     setTerms('');
-    setBarcodeFile(null);
-    setExistingBarcodePath(null);
+    setBarcodeFiles([]);
+    setExistingBarcodePaths([]);
     setErrorMessage(null);
     setIsDialogOpen(true);
   };
@@ -136,28 +166,52 @@ export default function CouponsPage() {
     setExpiryDate(c.expiryDate ? new Date(c.expiryDate).toISOString().split('T')[0] : '');
     setNotes(c.notes || '');
     setTerms(c.terms || '');
-    setBarcodeFile(null);
-    setExistingBarcodePath(c.barcodePath);
+    setBarcodeFiles([]);
+
+    let paths: string[] = [];
+    if (c.barcodePath) {
+      try {
+        if (c.barcodePath.startsWith('[')) {
+          paths = JSON.parse(c.barcodePath);
+        } else {
+          paths = [c.barcodePath];
+        }
+      } catch {
+        paths = [c.barcodePath];
+      }
+    }
+    setExistingBarcodePaths(paths);
     setErrorMessage(null);
     setIsDialogOpen(true);
   };
 
-  // Upload barcode image helper
-  const uploadBarcode = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', file);
+  const handleSaveDraft = () => {
+    const draftValues = { title, code, discountValue, discountType, merchant, expiryDate, notes, terms };
+    localStorage.setItem('sf_draft_coupon', JSON.stringify(draftValues));
+    toast.success('Coupon details saved as draft locally!');
+    setIsDialogOpen(false);
+  };
 
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
+  // Upload barcode images helper
+  const uploadBarcodes = async (files: File[]): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    if (!res.ok) {
-      throw new Error('Failed to upload barcode pass screenshot');
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to upload ${file.name}`);
+      }
+
+      const data = await res.json();
+      urls.push(data.filePath);
     }
-
-    const data = await res.json();
-    return data.filePath;
+    return urls;
   };
 
   // Submit Form
@@ -170,12 +224,13 @@ export default function CouponsPage() {
 
     startTransition(async () => {
       try {
-        let barcodePath = existingBarcodePath;
-
-        // If new file is selected, upload it first
-        if (barcodeFile) {
-          barcodePath = await uploadBarcode(barcodeFile);
+        let finalBarcodePaths = [...existingBarcodePaths];
+        if (barcodeFiles.length > 0) {
+          const newPaths = await uploadBarcodes(barcodeFiles);
+          finalBarcodePaths = [...finalBarcodePaths, ...newPaths];
         }
+
+        const barcodePath = finalBarcodePaths.length > 0 ? JSON.stringify(finalBarcodePaths) : null;
 
         const payload = {
           title,
@@ -204,6 +259,7 @@ export default function CouponsPage() {
             setCoupons(coupons.map((c) => (c.id === saved.id ? saved : c)));
           } else {
             setCoupons([saved, ...coupons]);
+            clearDraft();
           }
           setIsDialogOpen(false);
         } else {
@@ -449,17 +505,32 @@ export default function CouponsPage() {
                   </div>
                   
                   <div className="flex items-center gap-1 shrink-0">
-                    {c.barcodePath && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-accent text-primary"
-                        onClick={() => setLightboxUrl(c.barcodePath)}
-                        title="Show Barcode / Voucher Image"
-                      >
-                        <Barcode className="h-4.5 w-4.5" />
-                      </Button>
-                    )}
+                    {(() => {
+                      let paths: string[] = [];
+                      if (c.barcodePath) {
+                        try {
+                          if (c.barcodePath.startsWith('[')) {
+                            paths = JSON.parse(c.barcodePath);
+                          } else {
+                            paths = [c.barcodePath];
+                          }
+                        } catch {
+                          paths = [c.barcodePath];
+                        }
+                      }
+                      return paths.map((pathUrl, i) => (
+                        <Button
+                          key={i}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg hover:bg-accent text-primary"
+                          onClick={() => setLightboxUrl(pathUrl)}
+                          title={`Show Barcode / Voucher Image ${i + 1}`}
+                        >
+                          <Barcode className="h-4.5 w-4.5" />
+                        </Button>
+                      ));
+                    })()}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -667,15 +738,12 @@ export default function CouponsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground font-semibold">Voucher Barcode / QR Screenshot</Label>
-                <FileUpload
-                  onFileSelect={setBarcodeFile}
-                  onRemove={() => {
-                    setBarcodeFile(null);
-                    setExistingBarcodePath(null);
-                  }}
-                  selectedFile={barcodeFile}
-                  existingUrl={existingBarcodePath || undefined}
+                <Label className="label-uppercase text-muted-foreground font-semibold">Voucher Barcodes / QR Screenshots</Label>
+                <MultipleFileUpload
+                  onFilesChange={setBarcodeFiles}
+                  onRemoveExisting={(url) => setExistingBarcodePaths(prev => prev.filter(p => p !== url))}
+                  selectedFiles={barcodeFiles}
+                  existingUrls={existingBarcodePaths}
                 />
               </div>
 
@@ -691,7 +759,12 @@ export default function CouponsPage() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 flex flex-wrap items-center justify-between sm:justify-end">
+              {!editingCoupon && (
+                <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isPending} className="rounded-xl h-11 px-4 text-xs font-semibold mr-auto">
+                  Save as Draft
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-11">
                 Cancel
               </Button>

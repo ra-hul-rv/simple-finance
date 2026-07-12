@@ -27,6 +27,7 @@ import { PiggyBank, Plus, Edit2, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { Badge } from '@/components/ui/badge';
 
 interface Category {
@@ -79,10 +80,33 @@ export default function BudgetsPage() {
     fetchBudgets();
   }, []);
 
+  const initialValues = {
+    amount: '',
+    selectedCategoryId: ''
+  };
+
+  const { clearDraft } = useFormDraft(
+    'budget',
+    initialValues,
+    { amount, selectedCategoryId },
+    (vals) => {
+      setAmount(vals.amount || '');
+      setSelectedCategoryId(vals.selectedCategoryId || categories[0]?.id || '');
+    },
+    isDialogOpen
+  );
+
   const handleOpenAddDialog = () => {
     setAmount('');
     setSelectedCategoryId(categories[0]?.id || '');
     setIsDialogOpen(true);
+  };
+
+  const handleSaveDraft = () => {
+    const draftValues = { amount, selectedCategoryId };
+    localStorage.setItem('sf_draft_budget', JSON.stringify(draftValues));
+    toast.success('Budget details saved as draft locally!');
+    setIsDialogOpen(false);
   };
 
   const handleSaveBudget = () => {
@@ -114,6 +138,7 @@ export default function BudgetsPage() {
         }
 
         toast.success('Budget limit configured successfully');
+        clearDraft();
         setIsDialogOpen(false);
         fetchBudgets();
       } catch (err: any) {
@@ -245,7 +270,10 @@ export default function BudgetsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 flex flex-wrap items-center justify-between sm:justify-end">
+            <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isPending} className="rounded-xl h-11 px-4 text-xs font-semibold mr-auto">
+              Save as Draft
+            </Button>
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={isPending}>Cancel</Button>
             <Button onClick={handleSaveBudget} disabled={isPending} className="gradient-primary text-white font-semibold">
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply Limit'}

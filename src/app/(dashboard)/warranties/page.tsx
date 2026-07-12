@@ -39,9 +39,11 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileUpload } from '@/components/shared/file-upload';
+import { MultipleFileUpload } from '@/components/shared/multiple-file-upload';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { ImageLightbox } from '@/components/shared/image-lightbox';
 import { formatCurrency } from '@/lib/format';
+import { toast } from 'sonner';
 
 interface Warranty {
   id: string;
@@ -79,8 +81,8 @@ export default function WarrantiesPage() {
   const [store, setStore] = useState('');
   const [category, setCategory] = useState('ELECTRONICS');
   const [notes, setNotes] = useState('');
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [existingReceiptPath, setExistingReceiptPath] = useState<string | null>(null);
+  const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
+  const [existingReceiptPaths, setExistingReceiptPaths] = useState<string[]>([]);
 
   // Lightbox / Image Viewer
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -106,6 +108,32 @@ export default function WarrantiesPage() {
     loadData();
   }, []);
 
+  const initialValues = {
+    productName: '',
+    purchaseDate: new Date().toISOString().split('T')[0],
+    warrantyMonths: '12',
+    purchasePrice: '',
+    store: '',
+    category: 'ELECTRONICS',
+    notes: ''
+  };
+
+  const { clearDraft } = useFormDraft(
+    'warranty',
+    initialValues,
+    { productName, purchaseDate, warrantyMonths, purchasePrice, store, category, notes },
+    (vals) => {
+      setProductName(vals.productName || '');
+      setPurchaseDate(vals.purchaseDate || initialValues.purchaseDate);
+      setWarrantyMonths(vals.warrantyMonths || '12');
+      setPurchasePrice(vals.purchasePrice || '');
+      setStore(vals.store || '');
+      setCategory(vals.category || 'ELECTRONICS');
+      setNotes(vals.notes || '');
+    },
+    isDialogOpen && !editingWarranty
+  );
+
   const handleOpenAddDialog = () => {
     setEditingWarranty(null);
     setProductName('');
@@ -115,8 +143,8 @@ export default function WarrantiesPage() {
     setStore('');
     setCategory('ELECTRONICS');
     setNotes('');
-    setReceiptFile(null);
-    setExistingReceiptPath(null);
+    setReceiptFiles([]);
+    setExistingReceiptPaths([]);
     setErrorMessage(null);
     setIsDialogOpen(true);
   };
@@ -130,28 +158,52 @@ export default function WarrantiesPage() {
     setStore(w.store || '');
     setCategory(w.category || 'ELECTRONICS');
     setNotes(w.notes || '');
-    setReceiptFile(null);
-    setExistingReceiptPath(w.receiptPath);
+    setReceiptFiles([]);
+
+    let paths: string[] = [];
+    if (w.receiptPath) {
+      try {
+        if (w.receiptPath.startsWith('[')) {
+          paths = JSON.parse(w.receiptPath);
+        } else {
+          paths = [w.receiptPath];
+        }
+      } catch {
+        paths = [w.receiptPath];
+      }
+    }
+    setExistingReceiptPaths(paths);
     setErrorMessage(null);
     setIsDialogOpen(true);
   };
 
-  // Upload receipt helper
-  const uploadReceipt = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', file);
+  const handleSaveDraft = () => {
+    const draftValues = { productName, purchaseDate, warrantyMonths, purchasePrice, store, category, notes };
+    localStorage.setItem('sf_draft_warranty', JSON.stringify(draftValues));
+    toast.success('Warranty details saved as draft locally!');
+    setIsDialogOpen(false);
+  };
 
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
+  // Upload receipts helper
+  const uploadReceipts = async (files: File[]): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    if (!res.ok) {
-      throw new Error('Failed to upload receipt document');
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to upload ${file.name}`);
+      }
+
+      const data = await res.json();
+      urls.push(data.filePath);
     }
-
-    const data = await res.json();
-    return data.filePath; // Returns path saved under /uploads/attachments/
+    return urls;
   };
 
   // Submit Form
@@ -165,12 +217,13 @@ export default function WarrantiesPage() {
 
     startTransition(async () => {
       try {
-        let receiptPath = existingReceiptPath;
-
-        // If new file is selected, upload it first
-        if (receiptFile) {
-          receiptPath = await uploadReceipt(receiptFile);
+        let finalReceiptPaths = [...existingReceiptPaths];
+        if (receiptFiles.length > 0) {
+          const newPaths = await uploadReceipts(receiptFiles);
+          finalReceiptPaths = [...finalReceiptPaths, ...newPaths];
         }
+
+        const receiptPath = finalReceiptPaths.length > 0 ? JSON.stringify(finalReceiptPaths) : null;
 
         const payload = {
           productName,
@@ -198,6 +251,7 @@ export default function WarrantiesPage() {
             setWarranties(warranties.map((w) => (w.id === saved.id ? saved : w)));
           } else {
             setWarranties([saved, ...warranties]);
+            clearDraft();
           }
           setIsDialogOpen(false);
         } else {
@@ -419,17 +473,32 @@ export default function WarrantiesPage() {
                   </div>
                   
                   <div className="flex items-center gap-1 shrink-0">
-                    {w.receiptPath && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-accent text-primary"
-                        onClick={() => setLightboxUrl(w.receiptPath)}
-                        title="View Invoice Receipt"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                    )}
+                    {(() => {
+                      let paths: string[] = [];
+                      if (w.receiptPath) {
+                        try {
+                          if (w.receiptPath.startsWith('[')) {
+                            paths = JSON.parse(w.receiptPath);
+                          } else {
+                            paths = [w.receiptPath];
+                          }
+                        } catch {
+                          paths = [w.receiptPath];
+                        }
+                      }
+                      return paths.map((pathUrl, i) => (
+                        <Button
+                          key={i}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg hover:bg-accent text-primary"
+                          onClick={() => setLightboxUrl(pathUrl)}
+                          title={`View Invoice Attachment ${i + 1}`}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      ));
+                    })()}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -626,15 +695,12 @@ export default function WarrantiesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground font-semibold">Receipt Invoice Attachment</Label>
-                <FileUpload
-                  onFileSelect={setReceiptFile}
-                  onRemove={() => {
-                    setReceiptFile(null);
-                    setExistingReceiptPath(null);
-                  }}
-                  selectedFile={receiptFile}
-                  existingUrl={existingReceiptPath || undefined}
+                <Label className="label-uppercase text-muted-foreground font-semibold">Receipt Invoice Attachments</Label>
+                <MultipleFileUpload
+                  onFilesChange={setReceiptFiles}
+                  onRemoveExisting={(url) => setExistingReceiptPaths(prev => prev.filter(p => p !== url))}
+                  selectedFiles={receiptFiles}
+                  existingUrls={existingReceiptPaths}
                 />
               </div>
 
@@ -650,7 +716,12 @@ export default function WarrantiesPage() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 flex flex-wrap items-center justify-between sm:justify-end">
+              {!editingWarranty && (
+                <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isPending} className="rounded-xl h-11 px-4 text-xs font-semibold mr-auto">
+                  Save as Draft
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-11">
                 Cancel
               </Button>

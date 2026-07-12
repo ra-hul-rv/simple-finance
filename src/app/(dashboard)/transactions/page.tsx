@@ -31,7 +31,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { FileUpload } from '@/components/shared/file-upload';
+import { MultipleFileUpload } from '@/components/shared/multiple-file-upload';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { ImageLightbox } from '@/components/shared/image-lightbox';
 import {
   Plus,
@@ -141,9 +142,9 @@ export default function TransactionsPage() {
   const [transferToAccountId, setTransferToAccountId] = useState('');
   
   // File Upload states
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [existingAttachmentUrl, setExistingAttachmentUrl] = useState('');
-  const [existingAttachmentId, setExistingAttachmentId] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchTransactions = async () => {
@@ -214,9 +215,9 @@ export default function TransactionsPage() {
         setAccountId(accounts[0]?.id || '');
         setCategoryId('');
         setTransferToAccountId(accounts[1]?.id || accounts[0]?.id || '');
-        setSelectedFile(null);
-        setExistingAttachmentUrl('');
-        setExistingAttachmentId('');
+        setSelectedFiles([]);
+        setExistingAttachments([]);
+        setRemovedAttachmentIds([]);
         setIsDialogOpen(true);
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -226,6 +227,38 @@ export default function TransactionsPage() {
   useEffect(() => {
     fetchTransactions();
   }, [page, search, typeFilter, accountFilter, categoryFilter, startDate, endDate, minAmount, maxAmount]);
+
+  const initialValues = {
+    amount: '',
+    txType: 'EXPENSE',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    merchant: '',
+    location: '',
+    notes: '',
+    accountId: accounts[0]?.id || '',
+    categoryId: '',
+    transferToAccountId: ''
+  };
+
+  const { clearDraft } = useFormDraft(
+    'transaction',
+    initialValues,
+    { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId },
+    (vals) => {
+      setAmount(vals.amount || '');
+      setTxType((vals.txType as any) || 'EXPENSE');
+      setDate(vals.date || initialValues.date);
+      setDescription(vals.description || '');
+      setMerchant(vals.merchant || '');
+      setLocation(vals.location || '');
+      setNotes(vals.notes || '');
+      setAccountId(vals.accountId || accounts[0]?.id || '');
+      setCategoryId(vals.categoryId || '');
+      setTransferToAccountId(vals.transferToAccountId || '');
+    },
+    isDialogOpen && !editingTransaction
+  );
 
   const handleOpenAddDialog = () => {
     setEditingTransaction(null);
@@ -239,9 +272,9 @@ export default function TransactionsPage() {
     setAccountId(accounts[0]?.id || '');
     setCategoryId('');
     setTransferToAccountId('');
-    setSelectedFile(null);
-    setExistingAttachmentUrl('');
-    setExistingAttachmentId('');
+    setSelectedFiles([]);
+    setExistingAttachments([]);
+    setRemovedAttachmentIds([]);
     setIsDialogOpen(true);
   };
 
@@ -258,17 +291,18 @@ export default function TransactionsPage() {
     setCategoryId(tx.categoryId || '');
     setTransferToAccountId(tx.transferToAccountId || '');
 
-    setSelectedFile(null);
-    if (tx.attachments && tx.attachments.length > 0) {
-      const first = tx.attachments[0];
-      setExistingAttachmentUrl(first.filePath);
-      setExistingAttachmentId(first.id);
-    } else {
-      setExistingAttachmentUrl('');
-      setExistingAttachmentId('');
-    }
+    setSelectedFiles([]);
+    setExistingAttachments(tx.attachments || []);
+    setRemovedAttachmentIds([]);
 
     setIsDialogOpen(true);
+  };
+
+  const handleSaveDraft = () => {
+    const draftValues = { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId };
+    localStorage.setItem('sf_draft_transaction', JSON.stringify(draftValues));
+    toast.success('Transaction details saved as draft locally!');
+    setIsDialogOpen(false);
   };
 
   const handleSaveTransaction = () => {
@@ -320,31 +354,38 @@ export default function TransactionsPage() {
 
         const savedTx = await res.json();
 
-        // Handle attachment file upload if selected
-        if (selectedFile) {
-          setIsUploading(true);
-          const formData = new FormData();
-          formData.append('file', selectedFile);
-
-          const uploadUrl = `/api/transactions/${savedTx.id}/attachments`;
-          const uploadRes = await fetch(uploadUrl, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!uploadRes.ok) {
-            const uploadErr = await uploadRes.json();
-            toast.error(uploadErr.error || 'Failed to upload attachment file');
-          } else {
-            toast.success('Attachment uploaded successfully');
+        // Delete removed attachments if any
+        if (removedAttachmentIds.length > 0 && editingTransaction) {
+          for (const id of removedAttachmentIds) {
+            const deleteUrl = `/api/transactions/${editingTransaction.id}/attachments?attachmentId=${id}`;
+            await fetch(deleteUrl, { method: 'DELETE' });
           }
-        } else if (!existingAttachmentUrl && existingAttachmentId && editingTransaction) {
-          // User removed the existing attachment
-          const deleteUrl = `/api/transactions/${editingTransaction.id}/attachments?attachmentId=${existingAttachmentId}`;
-          await fetch(deleteUrl, { method: 'DELETE' });
+        }
+
+        // Upload new attachments if selected
+        if (selectedFiles.length > 0) {
+          setIsUploading(true);
+          for (const file of selectedFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadUrl = `/api/transactions/${savedTx.id}/attachments`;
+            const uploadRes = await fetch(uploadUrl, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!uploadRes.ok) {
+              const uploadErr = await uploadRes.json();
+              toast.error(uploadErr.error || `Failed to upload attachment ${file.name}`);
+            }
+          }
         }
 
         toast.success(editingTransaction ? 'Ledger record updated' : 'Ledger record added');
+        if (!editingTransaction) {
+          clearDraft();
+        }
         setIsDialogOpen(false);
         setPage(1);
         fetchTransactions();
@@ -858,18 +899,29 @@ export default function TransactionsPage() {
             {/* Receipt upload - spacious and visual */}
             <div className="space-y-2 border-t border-border/30 pt-4">
               <Label className="label-uppercase text-muted-foreground flex items-center gap-1.5">
-                <ImageIcon className="h-4 w-4" /> Transaction Attachment (Receipt / PDF)
+                <ImageIcon className="h-4 w-4" /> Transaction Attachments (Receipts / PDFs)
               </Label>
-              <FileUpload
-                onFileSelect={(file) => setSelectedFile(file)}
-                onRemove={() => { setSelectedFile(null); setExistingAttachmentUrl(''); }}
-                selectedFile={selectedFile}
-                existingUrl={existingAttachmentUrl}
+              <MultipleFileUpload
+                onFilesChange={setSelectedFiles}
+                onRemoveExisting={(url) => {
+                  const att = existingAttachments.find(a => a.filePath === url);
+                  if (att) {
+                    setRemovedAttachmentIds(prev => [...prev, att.id]);
+                    setExistingAttachments(prev => prev.filter(a => a.id !== att.id));
+                  }
+                }}
+                selectedFiles={selectedFiles}
+                existingUrls={existingAttachments.map(a => a.filePath)}
                 disabled={isPending || isUploading}
               />
             </div>
           </div>
-          <DialogFooter className="gap-3 pt-3 border-t border-border/30">
+          <DialogFooter className="gap-2.5 pt-3 border-t border-border/30 flex flex-wrap items-center justify-between sm:justify-end">
+            {!editingTransaction && (
+              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isPending || isUploading} className="rounded-xl h-11 px-4 text-xs font-semibold mr-auto">
+                Save as Draft
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending || isUploading} className="rounded-xl h-11">
               Cancel
             </Button>

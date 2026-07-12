@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/format';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -183,6 +184,64 @@ export default function UnifiedAccountsPage() {
     fetchAccounts();
   }, []);
 
+  const initialValues = {
+    name: '',
+    type: 'SAVINGS',
+    institution: '',
+    accountNumber: '',
+    balance: '0',
+    openingBalance: '0',
+    interestRate: '',
+    creditLimit: '',
+    color: '#6366f1',
+    icon: 'wallet',
+    notes: '',
+    cardName: '',
+    cardNumber: '',
+    cardHolderName: '',
+    expiryDate: '',
+    cvv: '',
+    lastFourDigits: '',
+    cardTemplate: 'STANDARD',
+    statementDate: '',
+    dueDate: '',
+    cardNotes: '',
+    rewardsBalance: '0',
+    minimumDue: ''
+  };
+
+  const { clearDraft } = useFormDraft(
+    'account',
+    initialValues,
+    { name, type, institution, accountNumber, balance, openingBalance, interestRate, creditLimit, color, icon, notes, cardName, cardNumber, cardHolderName, expiryDate, cvv, lastFourDigits, cardTemplate, statementDate, dueDate, cardNotes, rewardsBalance, minimumDue },
+    (vals) => {
+      setName(vals.name || '');
+      setType(vals.type || 'SAVINGS');
+      setInstitution(vals.institution || '');
+      setAccountNumber(vals.accountNumber || '');
+      setBalance(vals.balance || '0');
+      setOpeningBalance(vals.openingBalance || '0');
+      setInterestRate(vals.interestRate || '');
+      setCreditLimit(vals.creditLimit || '');
+      setColor(vals.color || '#6366f1');
+      setIcon(vals.icon || 'wallet');
+      setNotes(vals.notes || '');
+      setCardName(vals.cardName || '');
+      setCardNumber(vals.cardNumber || '');
+      setCardHolderName(vals.cardHolderName || '');
+      setExpiryDate(vals.expiryDate || '');
+      setCvv(vals.cvv || '');
+      setLastFourDigits(vals.lastFourDigits || '');
+      setCardTemplate(vals.cardTemplate || 'STANDARD');
+      setStatementDate(vals.statementDate || '');
+      setDueDate(vals.dueDate || '');
+      setCardNotes(vals.cardNotes || '');
+      setRewardsBalance(vals.rewardsBalance || '0');
+      setMinimumDue(vals.minimumDue || '');
+    },
+    isDialogOpen && !editingAccount
+  );
+
   const handleOpenAddDialog = () => {
     setEditingAccount(null);
     setName('');
@@ -255,6 +314,13 @@ export default function UnifiedAccountsPage() {
     }
 
     setIsDialogOpen(true);
+  };
+
+  const handleSaveDraft = () => {
+    const draftValues = { name, type, institution, accountNumber, balance, openingBalance, interestRate, creditLimit, color, icon, notes, cardName, cardNumber, cardHolderName, expiryDate, cvv, lastFourDigits, cardTemplate, statementDate, dueDate, cardNotes, rewardsBalance, minimumDue };
+    localStorage.setItem('sf_draft_account', JSON.stringify(draftValues));
+    toast.success('Account details saved as draft locally!');
+    setIsDialogOpen(false);
   };
 
   const handleSaveAccount = () => {
@@ -335,6 +401,9 @@ export default function UnifiedAccountsPage() {
         }
 
         toast.success(editingAccount ? 'Account updated successfully' : 'Account created successfully');
+        if (!editingAccount) {
+          clearDraft();
+        }
         setIsDialogOpen(false);
         fetchAccounts();
       } catch (err) {
@@ -1070,7 +1139,12 @@ export default function UnifiedAccountsPage() {
               </div>
             )}
           </div>
-          <DialogFooter className="gap-3 pt-3 border-t border-border/30">
+          <DialogFooter className="gap-2.5 pt-3 border-t border-border/30 flex flex-wrap items-center justify-between sm:justify-end">
+            {!editingAccount && (
+              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isPending} className="rounded-xl h-11 px-4 text-xs font-semibold mr-auto">
+                Save as Draft
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending} className="rounded-xl h-11">
               Cancel
             </Button>

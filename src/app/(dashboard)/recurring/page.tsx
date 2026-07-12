@@ -42,6 +42,7 @@ import {
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useFormDraft } from '@/hooks/use-form-draft';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 
 interface Account {
@@ -223,6 +224,44 @@ export default function BillsAndRecurringPage() {
     fetchData();
   }, []);
 
+  const initialValues = {
+    formSource: 'subscription',
+    name: '',
+    amount: '',
+    frequency: 'MONTHLY',
+    type: 'EXPENSE',
+    status: 'ACTIVE',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    accountId: accounts[0]?.id || '',
+    categoryId: '',
+    description: '',
+    url: '',
+    color: '#6366f1'
+  };
+
+  const { clearDraft } = useFormDraft(
+    'recurring',
+    initialValues,
+    { formSource, name, amount, frequency, type, status, startDate, endDate, accountId, categoryId, description, url, color },
+    (vals) => {
+      setFormSource(vals.formSource as any || 'subscription');
+      setName(vals.name || '');
+      setAmount(vals.amount || '');
+      setFrequency(vals.frequency as any || 'MONTHLY');
+      setType(vals.type as any || 'EXPENSE');
+      setStatus(vals.status as any || 'ACTIVE');
+      setStartDate(vals.startDate || initialValues.startDate);
+      setEndDate(vals.endDate || '');
+      setAccountId(vals.accountId || accounts[0]?.id || '');
+      setCategoryId(vals.categoryId || '');
+      setDescription(vals.description || '');
+      setUrl(vals.url || '');
+      setColor(vals.color || '#6366f1');
+    },
+    isDialogOpen && !editingItem
+  );
+
   const handleOpenAddDialog = () => {
     setEditingItem(null);
     setFormSource('subscription');
@@ -276,6 +315,13 @@ export default function BillsAndRecurringPage() {
       default:
         return val;
     }
+  };
+
+  const handleSaveDraft = () => {
+    const draftValues = { formSource, name, amount, frequency, type, status, startDate, endDate, accountId, categoryId, description, url, color };
+    localStorage.setItem('sf_draft_recurring', JSON.stringify(draftValues));
+    toast.success('Recurring details saved as draft locally!');
+    setIsDialogOpen(false);
   };
 
   const handleSaveItem = () => {
@@ -365,6 +411,9 @@ export default function BillsAndRecurringPage() {
         }
 
         toast.success(editingItem ? 'Updated successfully' : 'Created successfully');
+        if (!editingItem) {
+          clearDraft();
+        }
         setIsDialogOpen(false);
         fetchData();
       } catch (err: any) {
@@ -929,7 +978,12 @@ export default function BillsAndRecurringPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 flex flex-wrap items-center justify-between sm:justify-end">
+            {!editingItem && (
+              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={isPending} className="rounded-xl h-11 px-4 text-xs font-semibold mr-auto">
+                Save as Draft
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={isPending}>Cancel</Button>
             <Button onClick={handleSaveItem} disabled={isPending} className="gradient-primary text-white font-semibold">
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save scheduled item'}
