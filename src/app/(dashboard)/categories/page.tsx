@@ -456,7 +456,7 @@ export default function CategoriesPage() {
 
       {/* Add / Edit Category Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="form-spacious sm:max-w-[425px] lg:max-w-[550px] lg:p-8">
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
             <DialogDescription>
@@ -479,10 +479,11 @@ export default function CategoriesPage() {
                 <div className="flex items-center gap-2">
                   <Input
                     type="color"
-                    className="w-12 h-9 p-0.5 border rounded-lg cursor-pointer bg-background"
+                    className="w-14 h-11 p-1 border rounded-xl cursor-pointer border-border/40 transition-colors"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                     disabled={isPending}
+                    style={{ backgroundColor: color }}
                   />
                   <span className="text-xs font-mono">{color}</span>
                 </div>

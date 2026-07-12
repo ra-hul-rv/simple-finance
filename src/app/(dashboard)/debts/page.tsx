@@ -473,7 +473,7 @@ export default function DebtsPage() {
 
       {/* New/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="glass-dialog sm:max-w-[425px]">
+        <DialogContent className="form-spacious glass-dialog sm:max-w-[425px] lg:max-w-[550px] lg:p-8">
           <form onSubmit={handleSaveDebt} className="space-y-4">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-foreground">
@@ -577,7 +577,8 @@ export default function DebtsPage() {
                     id="color"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
-                    className="h-8 w-8 rounded border border-border cursor-pointer bg-transparent"
+                    className="w-14 h-11 p-1 border rounded-xl cursor-pointer border-border/40 transition-colors"
+                    style={{ backgroundColor: color }}
                   />
                   <span className="text-[10px] font-mono text-muted-foreground uppercase">{color}</span>
                 </div>
@@ -619,7 +620,7 @@ export default function DebtsPage() {
 
       {/* Record Payment Dialog */}
       <Dialog open={isRepayOpen} onOpenChange={setIsRepayOpen}>
-        <DialogContent className="glass-dialog sm:max-w-[400px]">
+        <DialogContent className="form-spacious glass-dialog sm:max-w-[400px] lg:max-w-[520px] lg:p-8">
           <form onSubmit={handleSaveRepayment} className="space-y-4">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-foreground">Record Repayment</DialogTitle>

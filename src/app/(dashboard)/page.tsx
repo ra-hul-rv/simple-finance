@@ -216,7 +216,10 @@ export default async function DashboardPage() {
       netWorthGrowth,
       showDashboardCharts: user.settings?.showDashboardCharts ?? true,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.digest?.startsWith('NEXT_REDIRECT') || error?.message === 'NEXT_REDIRECT') {
+      throw error;
+    }
     console.error('Failed to load dashboard data:', error);
     dashboardData = null;
   }

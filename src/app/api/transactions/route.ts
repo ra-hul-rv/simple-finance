@@ -73,6 +73,7 @@ export async function GET(request: Request) {
           account: true,
           category: true,
           transferToAccount: true,
+          attachments: true,
         },
         orderBy: { date: 'desc' },
         skip,
@@ -113,6 +114,65 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const validated = transactionSchema.parse(body);
+
+    // Evaluate TRANSACTION_CREATED active rules
+    const activeRules = await prisma.automationRule.findMany({
+      where: {
+        userId: session.user.id,
+        triggerType: 'TRANSACTION_CREATED',
+        isActive: true,
+      },
+    });
+
+    for (const rule of activeRules) {
+      const conditions = (rule.conditions || []) as any[];
+      let allMatch = true;
+
+      for (const cond of conditions) {
+        const { field, operator, value } = cond;
+        let fieldValue: any = null;
+
+        if (field === 'description') fieldValue = validated.description;
+        else if (field === 'accountId') fieldValue = validated.accountId;
+        else if (field === 'amount') fieldValue = validated.amount;
+        else if (field === 'type') fieldValue = validated.type;
+
+        if (fieldValue === null || fieldValue === undefined) {
+          allMatch = false;
+          break;
+        }
+
+        if (field === 'description') {
+          const valStr = String(value).toLowerCase();
+          const fieldStr = String(fieldValue).toLowerCase();
+          if (operator === 'contains') {
+            if (!fieldStr.includes(valStr)) allMatch = false;
+          } else if (operator === 'equals') {
+            if (fieldStr !== valStr) allMatch = false;
+          }
+        } else if (field === 'accountId' || field === 'type') {
+          if (String(fieldValue) !== String(value)) allMatch = false;
+        } else if (field === 'amount') {
+          const valNum = Number(value);
+          const fieldNum = Number(fieldValue);
+          if (operator === 'gt' && !(fieldNum > valNum)) allMatch = false;
+          else if (operator === 'lt' && !(fieldNum < valNum)) allMatch = false;
+          else if (operator === 'equals' && !(fieldNum === valNum)) allMatch = false;
+        }
+      }
+
+      if (allMatch && conditions.length > 0) {
+        const actions = (rule.actions || []) as any[];
+        for (const action of actions) {
+          const { type, value } = action;
+          if (type === 'setCategory') {
+            validated.categoryId = value;
+          } else if (type === 'setDescription') {
+            validated.description = value;
+          }
+        }
+      }
+    }
 
     // Run transaction and account balance updates in an atomic Prisma transaction
     const transaction = await prisma.$transaction(async (tx: any) => {

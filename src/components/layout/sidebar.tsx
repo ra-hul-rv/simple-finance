@@ -10,7 +10,6 @@ import {
   Tag,
   PiggyBank,
   Repeat,
-  CreditCard,
   TrendingUp,
   BarChart3,
   FileText,
@@ -28,6 +27,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
+import { signOut, useSession } from 'next-auth/react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { User, LogOut, ShoppingBag, ShieldCheck, Ticket, Cpu } from 'lucide-react';
 
 const mainNav = [
   { title: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -40,11 +50,15 @@ const mainNav = [
 const financeNav = [
   { title: 'Budgets', href: '/budgets', icon: PiggyBank },
   { title: 'Bills & Subs', href: '/recurring', icon: Repeat },
-  { title: 'Credit Cards', href: '/credit-cards', icon: CreditCard },
+  { title: 'Subscriptions', href: '/subscriptions', icon: Receipt },
   { title: 'Fixed Deposits', href: '/fixed-deposits', icon: Landmark },
   { title: 'Investments', href: '/investments', icon: TrendingUp },
   { title: 'Debts (+)', href: '/debts', icon: ArrowDownRight },
   { title: 'Loans (-)', href: '/loans', icon: ArrowUpRight },
+  { title: 'Shopping List', href: '/shopping', icon: ShoppingBag },
+  { title: 'Warranties', href: '/warranties', icon: ShieldCheck },
+  { title: 'Coupons Wallet', href: '/coupons', icon: Ticket },
+  { title: 'Automations', href: '/automations', icon: Cpu },
 ];
 
 const analyticsNav = [
@@ -59,6 +73,10 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const initials = session?.user?.name
+    ? session.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'CU';
 
   const NavItem = ({ item }: { item: { title: string; href: string; icon: React.ElementType } }) => {
     const isActive = pathname === item.href || 
@@ -69,7 +87,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <Link
         href={item.href}
         className={cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-all duration-200',
           'hover:bg-accent hover:text-accent-foreground',
           isActive
             ? 'bg-primary/10 text-primary shadow-sm'
@@ -77,7 +95,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           collapsed && 'justify-center px-2'
         )}
       >
-        <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary')} />
+        <Icon className={cn('h-[1.125rem] w-[1.125rem] shrink-0', isActive && 'text-primary')} />
         {!collapsed && (
           <motion.span
             initial={{ opacity: 0, width: 0 }}
@@ -113,9 +131,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   const NavSection = ({ title, items }: { title: string; items: typeof mainNav }) => (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {!collapsed && (
-        <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+        <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
           {title}
         </p>
       )}
@@ -170,16 +188,69 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </ScrollArea>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3">
-        <NavItem
-          item={{ title: 'Settings', href: '/settings', icon: Settings }}
-        />
+      <div className="border-t border-sidebar-border p-3 space-y-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="w-full text-left outline-none">
+            <div className={cn(
+              "flex items-center gap-3 rounded-xl p-2 cursor-pointer transition-all duration-200 hover:bg-accent/40",
+              collapsed && "justify-center p-1.5"
+            )}>
+              <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border/20">
+                <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-foreground truncate leading-snug">
+                    {session?.user?.name || 'Cloud User'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate leading-normal">
+                    {session?.user?.email || 'cloudstoreme111@gmail.com'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align={collapsed ? "start" : "center"} side="right" sideOffset={12}>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium">{session?.user?.name || 'Cloud User'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {session?.user?.email || 'cloudstoreme111@gmail.com'}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <Link href="/settings" className="flex items-center gap-2 w-full">
+                <User className="h-4 w-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Link href="/settings" className="flex items-center gap-2 w-full">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="gap-2 text-destructive focus:text-destructive"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button
           variant="ghost"
           size="sm"
           onClick={onToggle}
           className={cn(
-            'mt-2 w-full justify-center text-muted-foreground hover:text-foreground',
+            'w-full justify-center text-muted-foreground hover:text-foreground h-8',
           )}
         >
           <ChevronLeft

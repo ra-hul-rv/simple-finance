@@ -742,7 +742,7 @@ export default function BillsAndRecurringPage() {
 
       {/* Add/Edit Subscription & Recurring Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] glass border-border bg-card/90 backdrop-blur-xl">
+        <DialogContent className="form-spacious sm:max-w-[480px] lg:max-w-[600px] lg:p-8 glass border-border bg-card/90 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Scheduled Item' : 'New Scheduled Item'}</DialogTitle>
             <DialogDescription>
@@ -755,7 +755,9 @@ export default function BillsAndRecurringPage() {
                 <Label className="label-uppercase text-muted-foreground">Flow Structure Type</Label>
                 <Select value={formSource} onValueChange={(val: any) => setFormSource(val)}>
                   <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Select type">
+                      {formSource === 'subscription' ? 'Subscription (Fixed SaaS)' : formSource === 'recurring' ? 'General Recurring Rule' : 'Select type'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="subscription">Subscription (Fixed recurring service / SaaS)</SelectItem>
@@ -790,7 +792,9 @@ export default function BillsAndRecurringPage() {
                 <Label className="label-uppercase text-muted-foreground">Frequency</Label>
                 <Select value={frequency} onValueChange={(val: any) => setFrequency(val)} disabled={isPending}>
                   <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select Frequency" />
+                    <SelectValue placeholder="Select Frequency">
+                      {frequency === 'DAILY' ? 'Daily' : frequency === 'WEEKLY' ? 'Weekly' : frequency === 'MONTHLY' ? 'Monthly' : frequency === 'QUARTERLY' ? 'Quarterly' : frequency === 'SEMI_ANNUALLY' ? '6 Months' : frequency === 'YEARLY' ? 'Yearly' : 'Select Frequency'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="DAILY">Daily</SelectItem>
@@ -831,7 +835,9 @@ export default function BillsAndRecurringPage() {
                 <Label className="label-uppercase text-muted-foreground">Flow Direction</Label>
                 <Select value={type} onValueChange={(val: any) => setType(val)} disabled={isPending}>
                   <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Direction" />
+                    <SelectValue placeholder="Direction">
+                      {type === 'EXPENSE' ? 'Expense (Outflow)' : type === 'INCOME' ? 'Income (Inflow)' : type === 'TRANSFER' ? 'Transfer' : type === 'INVESTMENT' ? 'Investment' : 'Direction'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EXPENSE">Expense (Outflow)</SelectItem>
@@ -845,7 +851,9 @@ export default function BillsAndRecurringPage() {
                 <Label className="label-uppercase text-muted-foreground">Status</Label>
                 <Select value={status} onValueChange={(val: any) => setStatus(val)} disabled={isPending}>
                   <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Status" />
+                    <SelectValue placeholder="Status">
+                      {status === 'ACTIVE' ? 'Active' : status === 'PAUSED' ? 'Paused' : status === 'CANCELLED' ? 'Cancelled' : 'Expired'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ACTIVE">Active</SelectItem>
@@ -891,10 +899,11 @@ export default function BillsAndRecurringPage() {
                 <div className="flex items-center gap-2">
                   <Input
                     type="color"
-                    className="w-12 h-9 p-0.5 border rounded-lg cursor-pointer bg-background"
+                    className="w-14 h-11 p-1 border rounded-xl cursor-pointer border-border/40 transition-colors"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                     disabled={isPending}
+                    style={{ backgroundColor: color }}
                   />
                   <span className="text-xs font-mono">{color}</span>
                 </div>

@@ -19,10 +19,13 @@ function Progress({
       className={cn("flex flex-wrap gap-3", className)}
       {...props}
     >
-      {children}
-      <ProgressTrack className={trackClassName}>
-        <ProgressIndicator className={indicatorClassName} />
-      </ProgressTrack>
+      {children ? (
+        children
+      ) : (
+        <ProgressTrack className={trackClassName}>
+          <ProgressIndicator className={indicatorClassName} />
+        </ProgressTrack>
+      )}
     </ProgressPrimitive.Root>
   )
 }

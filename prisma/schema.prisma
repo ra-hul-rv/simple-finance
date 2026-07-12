@@ -116,6 +116,10 @@ model User {
   tags                  Tag[]
   debts                 Debt[]
   loans                 Loan[]
+  shoppingLists         ShoppingList[]
+  warranties            Warranty[]
+  coupons               Coupon[]
+  automationRules       AutomationRule[]
 }
 
 model UserSettings {
@@ -127,6 +131,7 @@ model UserSettings {
   showDashboardCharts  Boolean @default(true)
   showAccountsCharts   Boolean @default(true)
   showBillsCharts      Boolean @default(true)
+  showAttachments      Boolean @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -194,6 +199,7 @@ model Transaction {
   recurringTransaction   RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
 
   tags TransactionTag[]
+  attachments TransactionAttachment[]
 
   @@index([userId])
   @@index([accountId])
@@ -471,6 +477,111 @@ model Loan {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId String?
   account   Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model TransactionAttachment {
+  id            String   @id @default(uuid())
+  fileName      String
+  fileType      String   // "image/png", "application/pdf", etc.
+  filePath      String   // relative path in /public/uploads/attachments/
+  fileSize      Int      // bytes
+  createdAt     DateTime @default(now())
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+}
+
+model ShoppingList {
+  id          String             @id @default(uuid())
+  name        String
+  color       String             @default("#ec4899")
+  isCompleted Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       ShoppingListItem[]
+
+  @@index([userId])
+}
+
+model ShoppingListItem {
+  id             String   @id @default(uuid())
+  name           String
+  estimatedPrice Decimal? @db.Decimal(15, 2)
+  quantity       Int      @default(1)
+  checked        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  listId String
+  list   ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+}
+
+model Warranty {
+  id            String    @id @default(uuid())
+  productName   String
+  purchaseDate  DateTime
+  warrantyMonths Int
+  expiryDate    DateTime
+  purchasePrice Decimal?  @db.Decimal(15, 2)
+  store         String?
+  category      String?
+  notes         String?   @db.Text
+  receiptPath   String?
+  reminderDays  Int       @default(30)
+  isExpired     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  title         String
+  code          String
+  discountValue Decimal?  @db.Decimal(15, 2)
+  discountType  String    @default("PERCENTAGE") // "PERCENTAGE", "FLAT_AMOUNT", "FREE_SHIPPING", "OTHER"
+  merchant      String
+  expiryDate    DateTime?
+  isUsed        Boolean   @default(false)
+  notes         String?   @db.Text
+  terms         String?   @db.Text
+  barcodePath   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AutomationRule {
+  id            String    @id @default(uuid())
+  name          String
+  triggerType   String    // "TRANSACTION_CREATED" or "SCHEDULED"
+  isActive      Boolean   @default(true)
+  conditions    Json      // JSON array of conditions: { field, operator, value }
+  actions       Json      // JSON array of actions: { type, value }
+  frequency     String?   // "DAILY", "WEEKLY", "MONTHLY", "YEARLY" (for SCHEDULED)
+  nextExecution DateTime? // For scheduled rules
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

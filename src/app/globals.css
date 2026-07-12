@@ -174,6 +174,12 @@
   html {
     @apply font-sans scroll-smooth;
   }
+  h1 { @apply text-[1.75rem] font-bold tracking-tight leading-tight; }
+  h2 { @apply text-xl font-semibold tracking-tight; }
+  h3 { @apply text-lg font-semibold; }
+  input, textarea, select, [role="combobox"] {
+    font-size: 0.9375rem !important;
+  }
 }
 
 @layer utilities {
@@ -384,5 +390,73 @@
   }
   .animate-glow {
     animation: glow 2s ease-in-out infinite;
+  }
+
+  /* Improved form spacing */
+  .form-spacious input,
+  .form-spacious textarea,
+  .form-spacious select,
+  .form-spacious [role="combobox"],
+  .form-spacious button[role="combobox"] {
+    min-height: 44px;
+    @apply text-[0.9375rem] px-4;
+  }
+  @media (min-width: 1024px) {
+    .form-spacious input,
+    .form-spacious textarea,
+    .form-spacious select,
+    .form-spacious [role="combobox"],
+    .form-spacious button[role="combobox"] {
+      min-height: 50px;
+      font-size: 1rem !important;
+      @apply px-5;
+    }
+  }
+  .form-spacious label {
+    @apply text-xs font-semibold tracking-wider;
+  }
+  @media (min-width: 1024px) {
+    .form-spacious label {
+      font-size: 0.8125rem !important;
+    }
+  }
+  .form-spacious .space-y-1\.5 {
+    @apply space-y-2.5;
+  }
+  @media (min-width: 1024px) {
+    .form-spacious .space-y-1\.5 {
+      @apply space-y-3.5;
+    }
+  }
+
+  /* Section divider */
+  .section-divider {
+    @apply relative my-8;
+  }
+  .section-divider::before {
+    content: '';
+    @apply absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-border to-transparent;
+  }
+  .section-divider-label {
+    @apply relative z-10 inline-flex items-center gap-2 bg-background px-4 py-1 text-xs font-bold uppercase tracking-widest text-muted-foreground;
+  }
+
+  /* Fill input type="color" completely with color */
+  input[type="color"] {
+    -webkit-appearance: none;
+    border: none;
+    padding: 0;
+    overflow: hidden;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: inherit;
+  }
+  input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: inherit;
   }
 }

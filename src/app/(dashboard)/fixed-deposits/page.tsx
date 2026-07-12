@@ -244,7 +244,7 @@ export default function FixedDepositsPage() {
 
       {/* Add FD Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] glass border-border bg-card/90 backdrop-blur-xl">
+        <DialogContent className="form-spacious sm:max-w-[450px] lg:max-w-[580px] lg:p-8 glass border-border bg-card/90 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle>Log Term Deposit</DialogTitle>
             <DialogDescription>

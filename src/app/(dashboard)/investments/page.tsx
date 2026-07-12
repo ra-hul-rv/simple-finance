@@ -321,7 +321,7 @@ export default function InvestmentsPage() {
 
       {/* Link Asset Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] glass border-border bg-card/90 backdrop-blur-xl">
+        <DialogContent className="form-spacious sm:max-w-[425px] lg:max-w-[550px] lg:p-8 glass border-border bg-card/90 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle>{editingInv ? 'Modify Hold Details' : 'Link Investment Asset'}</DialogTitle>
             <DialogDescription>

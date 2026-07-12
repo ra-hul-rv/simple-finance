@@ -148,6 +148,7 @@ export async function GET(
         account: true,
         category: true,
         transferToAccount: true,
+        attachments: true,
       },
     });
 

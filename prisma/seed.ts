@@ -459,9 +459,6 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('password123', 12);
 
-  // Seed standard Demo User
-  await seedUser('demo@simplefinance.app', 'Demo User', passwordHash);
-
   // Seed Requested User
   await seedUser('cloudstoreme111@gmail.com', 'Cloud User', passwordHash);
 
