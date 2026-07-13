@@ -120,6 +120,7 @@ model User {
   warranties            Warranty[]
   coupons               Coupon[]
   automationRules       AutomationRule[]
+  flowTypes             FlowType[]
 }
 
 model UserSettings {
@@ -132,6 +133,8 @@ model UserSettings {
   showAccountsCharts   Boolean @default(true)
   showBillsCharts      Boolean @default(true)
   showAttachments      Boolean @default(true)
+  sidebarOrder         String?
+  sidebarSectionLabels String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -179,6 +182,7 @@ model Transaction {
   date        DateTime          @default(now())
   amount      Decimal           @db.Decimal(15, 2)
   type        TransactionType
+  flowType    String?
   description String?
   merchant    String?
   location    String?
@@ -583,5 +587,22 @@ model AutomationRule {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+model FlowType {
+  id          String   @id @default(uuid())
+  name        String
+  direction   String   // "INCOME" or "EXPENSE"
+  color       String?  @default("#6366f1")
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
   @@index([userId])
 }

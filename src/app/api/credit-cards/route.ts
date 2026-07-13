@@ -38,15 +38,42 @@ export async function GET() {
       orderBy: [{ order: 'asc' }, { cardName: 'asc' }],
     });
 
-    const formatted = cards.map((c: any) => ({
-      ...c,
-      creditLimit: Number(c.creditLimit),
-      outstandingBalance: Number(c.outstandingBalance),
-      availableCredit: Number(c.availableCredit),
-      minimumDue: c.minimumDue ? Number(c.minimumDue) : null,
-      interestRate: c.interestRate ? Number(c.interestRate) : null,
-      rewardsBalance: Number(c.rewardsBalance),
-      account: { ...c.account, balance: Number(c.account.balance) },
+    const formatted = await Promise.all(cards.map(async (c: any) => {
+      const lastPayment = await prisma.transaction.findFirst({
+        where: {
+          userId: session.user.id,
+          transferToAccountId: c.accountId,
+        },
+        orderBy: { date: 'desc' },
+      });
+
+      // Self-heal outstanding balance and available credit dynamically to match actual account balance
+      const currentOutstanding = Math.max(0, -Number(c.account.balance));
+      const currentAvailable = Math.max(0, Number(c.creditLimit) - currentOutstanding);
+
+      if (Number(c.outstandingBalance) !== currentOutstanding || Number(c.availableCredit) !== currentAvailable) {
+        await prisma.creditCard.update({
+          where: { id: c.id },
+          data: {
+            outstandingBalance: currentOutstanding,
+            availableCredit: currentAvailable,
+          },
+        });
+        c.outstandingBalance = currentOutstanding;
+        c.availableCredit = currentAvailable;
+      }
+
+      return {
+        ...c,
+        creditLimit: Number(c.creditLimit),
+        outstandingBalance: Number(c.outstandingBalance),
+        availableCredit: Number(c.availableCredit),
+        minimumDue: c.minimumDue ? Number(c.minimumDue) : null,
+        interestRate: c.interestRate ? Number(c.interestRate) : null,
+        rewardsBalance: Number(c.rewardsBalance),
+        account: { ...c.account, balance: Number(c.account.balance) },
+        lastPaidDate: lastPayment ? lastPayment.date.toISOString().split('T')[0] : null,
+      };
     }));
 
     return NextResponse.json(formatted);

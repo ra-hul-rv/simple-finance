@@ -11,6 +11,8 @@ const settingsSchema = z.object({
   showDashboardCharts: z.boolean().optional(),
   showAccountsCharts: z.boolean().optional(),
   showBillsCharts: z.boolean().optional(),
+  sidebarOrder: z.string().optional().nullable(),
+  sidebarSectionLabels: z.string().optional().nullable(),
 });
 
 export async function GET() {

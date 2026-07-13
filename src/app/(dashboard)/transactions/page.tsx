@@ -71,6 +71,7 @@ interface Transaction {
   date: string;
   amount: number;
   type: 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'INVESTMENT' | 'CREDIT_CARD_PAYMENT' | 'REFUND' | 'INTEREST' | 'DIVIDEND';
+  flowType?: string | null;
   description: string;
   merchant: string | null;
   location: string | null;
@@ -94,6 +95,17 @@ interface Category {
   name: string;
   type: 'INCOME' | 'EXPENSE';
 }
+
+const getCategoryPath = (category: any): string => {
+  if (!category) return '';
+  const parts: string[] = [];
+  let current = category;
+  while (current) {
+    parts.unshift(current.name);
+    current = current.parent;
+  }
+  return parts.join(' / ');
+};
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -140,6 +152,9 @@ export default function TransactionsPage() {
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [transferToAccountId, setTransferToAccountId] = useState('');
+  const [flowType, setFlowType] = useState('');
+  const [flowTypes, setFlowTypes] = useState<any[]>([]);
+  const [isOneOffFlow, setIsOneOffFlow] = useState(false);
   
   // File Upload states
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -184,12 +199,14 @@ export default function TransactionsPage() {
 
   const fetchFilters = async () => {
     try {
-      const [accRes, catRes] = await Promise.all([
+      const [accRes, catRes, ftRes] = await Promise.all([
         fetch('/api/accounts'),
         fetch('/api/categories'),
+        fetch('/api/flow-types'),
       ]);
       if (accRes.ok) setAccounts(await accRes.json());
       if (catRes.ok) setCategories(await catRes.json());
+      if (ftRes.ok) setFlowTypes(await ftRes.json());
     } catch (err) {
       console.error('Failed to fetch filters:', err);
     }
@@ -238,13 +255,14 @@ export default function TransactionsPage() {
     notes: '',
     accountId: accounts[0]?.id || '',
     categoryId: '',
-    transferToAccountId: ''
+    transferToAccountId: '',
+    flowType: ''
   };
 
   const { clearDraft } = useFormDraft(
     'transaction',
     initialValues,
-    { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId },
+    { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId, flowType },
     (vals) => {
       setAmount(vals.amount || '');
       setTxType((vals.txType as any) || 'EXPENSE');
@@ -256,6 +274,7 @@ export default function TransactionsPage() {
       setAccountId(vals.accountId || accounts[0]?.id || '');
       setCategoryId(vals.categoryId || '');
       setTransferToAccountId(vals.transferToAccountId || '');
+      setFlowType(vals.flowType || '');
     },
     isDialogOpen && !editingTransaction
   );
@@ -264,6 +283,8 @@ export default function TransactionsPage() {
     setEditingTransaction(null);
     setAmount('');
     setTxType('EXPENSE');
+    setFlowType('');
+    setIsOneOffFlow(false);
     setDate(new Date().toISOString().split('T')[0]);
     setDescription('');
     setMerchant('');
@@ -282,6 +303,9 @@ export default function TransactionsPage() {
     setEditingTransaction(tx);
     setAmount(tx.amount.toString());
     setTxType(tx.type);
+    setFlowType(tx.flowType || '');
+    const isOneOff = tx.flowType ? !flowTypes.some(f => f.name === tx.flowType) : false;
+    setIsOneOffFlow(isOneOff);
     setDate(new Date(tx.date).toISOString().split('T')[0]);
     setDescription(tx.description);
     setMerchant(tx.merchant || '');
@@ -299,7 +323,7 @@ export default function TransactionsPage() {
   };
 
   const handleSaveDraft = () => {
-    const draftValues = { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId };
+    const draftValues = { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId, flowType };
     localStorage.setItem('sf_draft_transaction', JSON.stringify(draftValues));
     toast.success('Transaction details saved as draft locally!');
     setIsDialogOpen(false);
@@ -328,6 +352,7 @@ export default function TransactionsPage() {
         const payload = {
           amount: parseFloat(amount),
           type: txType,
+          flowType: flowType || null,
           date: new Date(date).toISOString(),
           description: description.trim(),
           merchant: merchant.trim() || null,
@@ -418,6 +443,30 @@ export default function TransactionsPage() {
     setLightboxSrc(path);
     setLightboxIsPdf(type.includes('pdf'));
     setLightboxIsOpen(true);
+  };
+
+  const getSelectedFlowValue = () => {
+    if (!flowType) return txType;
+    if (isOneOffFlow) return 'CUSTOM_ONEOFF';
+    return `CUSTOM_${flowType}`;
+  };
+
+  const getSelectedFlowLabel = () => {
+    if (flowType) {
+      if (isOneOffFlow) return `Custom: ${flowType}`;
+      return `Custom: ${flowType}`;
+    }
+    switch (txType) {
+      case 'EXPENSE': return 'Expense';
+      case 'INCOME': return 'Income';
+      case 'TRANSFER': return 'Transfer Fund';
+      case 'INVESTMENT': return 'Investment';
+      case 'CREDIT_CARD_PAYMENT': return 'Credit Card Pay';
+      case 'REFUND': return 'Refund';
+      case 'INTEREST': return 'Interest Earned';
+      case 'DIVIDEND': return 'Dividend Credit';
+      default: return txType;
+    }
   };
 
   return (
@@ -621,24 +670,32 @@ export default function TransactionsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground italic font-medium">
-                      {tx.location || '—'}
+                      {tx.location || ''}
                     </TableCell>
                     <TableCell>
-                      {tx.category ? (
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{
-                            backgroundColor: `${tx.category.color}15`,
-                            color: tx.category.color,
-                          }}
-                        >
-                          {tx.category.name}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent text-muted-foreground">
-                          {tx.type.replace('_', ' ')}
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1 items-start">
+                        {tx.category ? (
+                          <span
+                            title={getCategoryPath(tx.category)}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block truncate max-w-[180px] hover:max-w-none transition-all duration-300 cursor-help"
+                            style={{
+                              backgroundColor: `${tx.category.color}15`,
+                              color: tx.category.color,
+                            }}
+                          >
+                            {getCategoryPath(tx.category)}
+                          </span>
+                        ) : null}
+                        {tx.flowType ? (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                            {tx.flowType}
+                          </span>
+                        ) : !tx.category ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent text-muted-foreground">
+                            {tx.type.replace('_', ' ')}
+                          </span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     {showAttachmentsOnList && (
                       <TableCell>
@@ -667,7 +724,7 @@ export default function TransactionsPage() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground/40 font-medium">—</span>
+                          <span className="text-xs text-muted-foreground/40 font-medium"></span>
                         )}
                       </TableCell>
                     )}
@@ -677,7 +734,7 @@ export default function TransactionsPage() {
                         ? 'text-success'
                         : 'text-foreground'
                     )}>
-                      {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : '-'}
+                      {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
                       {formatCurrency(tx.amount, 'INR')}
                     </TableCell>
                     <TableCell className="pr-6">
@@ -784,11 +841,37 @@ export default function TransactionsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground">Flow Type</Label>
-                <Select value={txType} onValueChange={(val) => setTxType((val || 'EXPENSE') as any)} disabled={isPending}>
+                <Label className="label-uppercase text-muted-foreground">Flow Type Category</Label>
+                <Select
+                  value={getSelectedFlowValue()}
+                  onValueChange={(val) => {
+                    if (!val) return;
+                    if (val === 'MANAGE_FLOWS') {
+                      window.open('/settings', '_blank');
+                      return;
+                    }
+                    if (val === 'CUSTOM_ONEOFF') {
+                      setIsOneOffFlow(true);
+                      setFlowType('Custom Flow');
+                    } else if (val.startsWith('CUSTOM_')) {
+                      setIsOneOffFlow(false);
+                      const flowName = val.substring(7);
+                      setFlowType(flowName);
+                      const matched = flowTypes.find(f => f.name === flowName);
+                      if (matched) {
+                        setTxType(matched.direction);
+                      }
+                    } else {
+                      setIsOneOffFlow(false);
+                      setFlowType('');
+                      setTxType(val as any);
+                    }
+                  }}
+                  disabled={isPending}
+                >
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
-                    <SelectValue placeholder="Type">
-                      {txType === 'EXPENSE' ? 'Expense' : txType === 'INCOME' ? 'Income' : txType === 'TRANSFER' ? 'Transfer Fund' : txType === 'INVESTMENT' ? 'Investment' : txType === 'CREDIT_CARD_PAYMENT' ? 'Credit Card Pay' : txType === 'REFUND' ? 'Refund' : txType === 'INTEREST' ? 'Interest Earned' : 'Dividend Credit'}
+                    <SelectValue placeholder="Select type">
+                      {getSelectedFlowLabel()}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -800,10 +883,77 @@ export default function TransactionsPage() {
                     <SelectItem value="REFUND">Refund</SelectItem>
                     <SelectItem value="INTEREST">Interest Earned</SelectItem>
                     <SelectItem value="DIVIDEND">Dividend Credit</SelectItem>
+                    
+                    {flowTypes.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-t border-border/20 mt-1">Predefined Custom Flows</div>
+                        {flowTypes.map((ft) => (
+                          <SelectItem key={ft.id} value={`CUSTOM_${ft.name}`} className="pl-6 text-xs">
+                            ✨ {ft.name} ({ft.direction === 'INCOME' ? 'Inflow' : 'Outflow'})
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                    
+                    <div className="border-t border-border/20 mt-1" />
+                    <SelectItem value="CUSTOM_ONEOFF" className="text-primary font-semibold pl-6">+ Custom (One-off)...</SelectItem>
+                    <SelectItem value="MANAGE_FLOWS" className="text-amber-500 font-semibold pl-6">⚙ Manage Predefined Flows...</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {isOneOffFlow ? (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <Label className="label-uppercase text-muted-foreground">Custom Flow Name</Label>
+                  <Input
+                    placeholder="e.g. Salary, Rent, Taxes"
+                    value={flowType}
+                    onChange={(e) => setFlowType(e.target.value)}
+                    disabled={isPending}
+                    className="h-11 px-4 rounded-xl border-border/40 bg-background/20"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5 opacity-40">
+                  <Label className="label-uppercase text-muted-foreground">Custom Flow Name</Label>
+                  <Input
+                    disabled
+                    placeholder="Configure in Settings..."
+                    className="h-11 px-4 rounded-xl border-border/40 bg-background/10 cursor-not-allowed"
+                  />
+                </div>
+              )}
+            </div>
+
+            {isOneOffFlow && (
+              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200 bg-primary/5 p-3 rounded-xl border border-primary/20">
+                <Label className="label-uppercase text-muted-foreground">Custom Flow Base Category</Label>
+                <div className="flex gap-4 mt-1.5">
+                  <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                    <input
+                      type="radio"
+                      name="flowDirection"
+                      checked={txType === 'EXPENSE'}
+                      onChange={() => setTxType('EXPENSE')}
+                      className="accent-primary"
+                    />
+                    Outflow (Expense)
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                    <input
+                      type="radio"
+                      name="flowDirection"
+                      checked={txType === 'INCOME'}
+                      onChange={() => setTxType('INCOME')}
+                      className="accent-primary"
+                    />
+                    Inflow (Income)
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Ledger Account</Label>
                 <Select value={accountId} onValueChange={(val) => setAccountId(val || '')} disabled={isPending}>
@@ -819,9 +969,7 @@ export default function TransactionsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1">
               {txType !== 'TRANSFER' && txType !== 'CREDIT_CARD_PAYMENT' ? (
                 <CategorySelector
                   categories={categories as any}

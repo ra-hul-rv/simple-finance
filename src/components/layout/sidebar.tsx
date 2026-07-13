@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -73,10 +74,111 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const initials = session?.user?.name
     ? session.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'CU';
+
+  const [orderedMain, setOrderedMain] = useState(mainNav);
+  const [orderedFinance, setOrderedFinance] = useState(financeNav);
+  const [orderedAnalytics, setOrderedAnalytics] = useState(analyticsNav);
+  const [sectionLabels, setSectionLabels] = useState({
+    overview: 'Overview',
+    finance: 'Finance',
+    insights: 'Insights',
+    system: 'System',
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('sf_sidebar_order');
+      if (saved) {
+        try {
+          const order = JSON.parse(saved) as string[];
+          const reorder = (items: typeof mainNav) => {
+            return [...items].sort((a, b) => {
+              const indexA = order.indexOf(a.href);
+              const indexB = order.indexOf(b.href);
+              if (indexA === -1 && indexB === -1) return 0;
+              if (indexA === -1) return 1;
+              if (indexB === -1) return -1;
+              return indexA - indexB;
+            });
+          };
+          setOrderedMain(reorder(mainNav));
+          setOrderedFinance(reorder(financeNav));
+          setOrderedAnalytics(reorder(analyticsNav));
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        setOrderedMain(mainNav);
+        setOrderedFinance(financeNav);
+        setOrderedAnalytics(analyticsNav);
+      }
+
+      const savedLabels = localStorage.getItem('sf_sidebar_section_labels');
+      if (savedLabels) {
+        try {
+          const parsed = JSON.parse(savedLabels);
+          setSectionLabels(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+
+    handleStorageChange();
+
+    const loadFromApi = async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.sidebarOrder) {
+            const orderIds = data.sidebarOrder.split(',');
+            const idToHref: Record<string, string> = {
+              dashboard: '/',
+              accounts: '/accounts',
+              transactions: '/transactions',
+              income: '/income',
+              categories: '/categories',
+              budgets: '/budgets',
+              recurring: '/recurring',
+              subscriptions: '/subscriptions',
+              'fixed-deposits': '/fixed-deposits',
+              investments: '/investments',
+              debts: '/debts',
+              loans: '/loans',
+              shopping: '/shopping',
+              warranties: '/warranties',
+              coupons: '/coupons',
+              automations: '/automations',
+              analytics: '/analytics',
+              reports: '/reports'
+            };
+            const hrefOrder = orderIds.map((id: string) => idToHref[id]).filter(Boolean);
+            localStorage.setItem('sf_sidebar_order', JSON.stringify(hrefOrder));
+          }
+          if (data.sidebarSectionLabels) {
+            localStorage.setItem('sf_sidebar_section_labels', data.sidebarSectionLabels);
+          }
+          handleStorageChange();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadFromApi();
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('sf_sidebar_updated', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('sf_sidebar_updated', handleStorageChange);
+    };
+  }, []);
 
   const NavItem = ({ item }: { item: { title: string; href: string; icon: React.ElementType } }) => {
     const isActive = pathname === item.href || 
@@ -181,9 +283,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <div className="space-y-6">
-          <NavSection title="Overview" items={mainNav} />
-          <NavSection title="Finance" items={financeNav} />
-          <NavSection title="Insights" items={analyticsNav} />
+          <NavSection title={sectionLabels.overview} items={orderedMain} />
+          <NavSection title={sectionLabels.finance} items={orderedFinance} />
+          <NavSection title={sectionLabels.insights} items={orderedAnalytics} />
+          <NavSection title={sectionLabels.system} items={[{ title: 'Settings', href: '/settings', icon: Settings }]} />
         </div>
       </ScrollArea>
 
@@ -222,17 +325,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link href="/settings" className="flex items-center gap-2 w-full">
-                <User className="h-4 w-4" />
-                Profile
-              </Link>
+            <DropdownMenuItem onClick={() => router.push('/settings')} className="cursor-pointer gap-2">
+              <User className="h-4 w-4" />
+              Profile
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Link href="/settings" className="flex items-center gap-2 w-full">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
+            <DropdownMenuItem onClick={() => router.push('/settings')} className="cursor-pointer gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

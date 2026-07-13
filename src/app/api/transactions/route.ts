@@ -20,11 +20,37 @@ const transactionSchema = z.object({
   merchant: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  flowType: z.string().optional().nullable(),
   accountId: z.string().uuid('Invalid account ID'),
   categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
   transferToAccountId: z.string().uuid('Invalid destination account ID').optional().nullable(),
   tags: z.array(z.string()).optional().default([]),
 });
+
+async function syncCreditCardBalances(accountId: string, prismaClient: any) {
+  const card = await prismaClient.creditCard.findUnique({
+    where: { accountId },
+  });
+
+  if (!card) return;
+
+  const account = await prismaClient.account.findUnique({
+    where: { id: accountId },
+  });
+
+  if (!account) return;
+
+  const outstanding = Math.max(0, -Number(account.balance));
+  const available = Math.max(0, Number(card.creditLimit) - outstanding);
+
+  await prismaClient.creditCard.update({
+    where: { id: card.id },
+    data: {
+      outstandingBalance: outstanding,
+      availableCredit: available,
+    },
+  });
+}
 
 export async function GET(request: Request) {
   try {
@@ -71,7 +97,15 @@ export async function GET(request: Request) {
         where: whereClause,
         include: {
           account: true,
-          category: true,
+          category: {
+            include: {
+              parent: {
+                include: {
+                  parent: true,
+                },
+              },
+            },
+          },
           transferToAccount: true,
           attachments: true,
         },
@@ -181,6 +215,7 @@ export async function POST(request: Request) {
         data: {
           amount: validated.amount,
           type: validated.type,
+          flowType: validated.flowType || null,
           date: validated.date,
           description: validated.description,
           merchant: validated.merchant,
@@ -258,6 +293,11 @@ export async function POST(request: Request) {
             data: { spent: { increment: validated.amount } },
           });
         }
+      }
+
+      await syncCreditCardBalances(validated.accountId, tx);
+      if (validated.transferToAccountId) {
+        await syncCreditCardBalances(validated.transferToAccountId, tx);
       }
 
       return createdTx;

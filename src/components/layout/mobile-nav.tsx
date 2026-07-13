@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut } from 'lucide-react';
@@ -82,6 +82,102 @@ export function MobileNav() {
     ? session.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'CU';
 
+  const [orderedSections, setOrderedSections] = useState(allNavItems);
+  const [sectionLabels, setSectionLabels] = useState({
+    overview: 'Overview',
+    finance: 'Finance',
+    insights: 'Insights',
+    system: 'System',
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const saved = localStorage.getItem('sf_sidebar_order');
+      if (saved) {
+        try {
+          const order = JSON.parse(saved) as string[];
+          const reordered = allNavItems.map(sec => {
+            if (sec.section === 'System') return sec;
+            const items = [...sec.items].sort((a, b) => {
+              const indexA = order.indexOf(a.href);
+              const indexB = order.indexOf(b.href);
+              if (indexA === -1 && indexB === -1) return 0;
+              if (indexA === -1) return 1;
+              if (indexB === -1) return -1;
+              return indexA - indexB;
+            });
+            return { ...sec, items };
+          });
+          setOrderedSections(reordered);
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        setOrderedSections(allNavItems);
+      }
+
+      const savedLabels = localStorage.getItem('sf_sidebar_section_labels');
+      if (savedLabels) {
+        try {
+          const parsed = JSON.parse(savedLabels);
+          setSectionLabels(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+
+    handleStorageChange();
+
+    const loadFromApi = async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.sidebarOrder) {
+            const orderIds = data.sidebarOrder.split(',');
+            const idToHref: Record<string, string> = {
+              dashboard: '/',
+              accounts: '/accounts',
+              transactions: '/transactions',
+              income: '/income',
+              categories: '/categories',
+              budgets: '/budgets',
+              recurring: '/recurring',
+              subscriptions: '/subscriptions',
+              'fixed-deposits': '/fixed-deposits',
+              investments: '/investments',
+              debts: '/debts',
+              loans: '/loans',
+              shopping: '/shopping',
+              warranties: '/warranties',
+              coupons: '/coupons',
+              automations: '/automations',
+              analytics: '/analytics',
+              reports: '/reports'
+            };
+            const hrefOrder = orderIds.map((id: string) => idToHref[id]).filter(Boolean);
+            localStorage.setItem('sf_sidebar_order', JSON.stringify(hrefOrder));
+          }
+          if (data.sidebarSectionLabels) {
+            localStorage.setItem('sf_sidebar_section_labels', data.sidebarSectionLabels);
+          }
+          handleStorageChange();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadFromApi();
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('sf_sidebar_updated', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('sf_sidebar_updated', handleStorageChange);
+    };
+  }, []);
+
   return (
     <>
       {/* Top bar with menu */}
@@ -105,10 +201,14 @@ export function MobileNav() {
             </div>
             <ScrollArea className="h-[calc(100vh-3.5rem)]">
               <div className="space-y-6 p-4">
-                {allNavItems.map((section) => (
+                {orderedSections.map((section) => (
                   <div key={section.section}>
                     <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      {section.section}
+                      {section.section === 'Overview' ? sectionLabels.overview :
+                       section.section === 'Finance' ? sectionLabels.finance :
+                       section.section === 'Insights' ? sectionLabels.insights :
+                       section.section === 'System' ? sectionLabels.system :
+                       section.section}
                     </p>
                     <div className="space-y-0.5">
                       {section.items.map((item) => {

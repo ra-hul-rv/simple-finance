@@ -20,10 +20,36 @@ const updateTransactionSchema = z.object({
   merchant: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  flowType: z.string().optional().nullable(),
   accountId: z.string().uuid(),
   categoryId: z.string().uuid().optional().nullable(),
   transferToAccountId: z.string().uuid().optional().nullable(),
 });
+
+async function syncCreditCardBalances(accountId: string, prismaClient: any) {
+  const card = await prismaClient.creditCard.findUnique({
+    where: { accountId },
+  });
+
+  if (!card) return;
+
+  const account = await prismaClient.account.findUnique({
+    where: { id: accountId },
+  });
+
+  if (!account) return;
+
+  const outstanding = Math.max(0, -Number(account.balance));
+  const available = Math.max(0, Number(card.creditLimit) - outstanding);
+
+  await prismaClient.creditCard.update({
+    where: { id: card.id },
+    data: {
+      outstandingBalance: outstanding,
+      availableCredit: available,
+    },
+  });
+}
 
 // Revert balances for a transaction
 async function revertBalances(tx: any, prismaClient: any) {
@@ -199,6 +225,7 @@ export async function PUT(
         data: {
           amount: validated.amount,
           type: validated.type,
+          flowType: validated.flowType || null,
           date: validated.date,
           description: validated.description,
           merchant: validated.merchant || null,
@@ -212,6 +239,16 @@ export async function PUT(
 
       // Apply new effects
       await applyBalances(newTx, tx);
+
+      // Sync credit card balances for both old and new accounts to ensure correctness
+      await syncCreditCardBalances(oldTx.accountId, tx);
+      if (oldTx.transferToAccountId) {
+        await syncCreditCardBalances(oldTx.transferToAccountId, tx);
+      }
+      await syncCreditCardBalances(newTx.accountId, tx);
+      if (newTx.transferToAccountId) {
+        await syncCreditCardBalances(newTx.transferToAccountId, tx);
+      }
 
       return newTx;
     });
@@ -257,6 +294,12 @@ export async function DELETE(
       await tx.transaction.delete({
         where: { id },
       });
+
+      // Sync credit card balances to match the deleted transaction state
+      await syncCreditCardBalances(transaction.accountId, tx);
+      if (transaction.transferToAccountId) {
+        await syncCreditCardBalances(transaction.transferToAccountId, tx);
+      }
     });
 
     return NextResponse.json({ success: true, message: 'Transaction deleted successfully' });

@@ -86,6 +86,8 @@ interface CreditCardDetail {
   interestRate: number | null;
   rewardsBalance: number;
   color: string;
+  lastPaidDate?: string | null;
+  order: number;
 }
 
 const CARD_TEMPLATES = [
@@ -430,7 +432,13 @@ export default function UnifiedAccountsPage() {
   };
 
   const assetAccounts = accounts.filter(a => a.type !== 'CREDIT_CARD');
-  const cardAccounts = accounts.filter(a => a.type === 'CREDIT_CARD');
+  const cardAccounts = accounts
+    .filter(a => a.type === 'CREDIT_CARD')
+    .sort((a, b) => {
+      const orderA = a.creditCard?.order ?? 0;
+      const orderB = b.creditCard?.order ?? 0;
+      return orderA - orderB;
+    });
 
   const totalAssets = assetAccounts.reduce((sum, a) => sum + Number(a.balance), 0);
   const totalLiabilities = cardAccounts.reduce((sum, a) => sum + Math.abs(Number(a.balance)), 0);
@@ -693,7 +701,7 @@ export default function UnifiedAccountsPage() {
                         {/* Visual Card Body */}
                         <div
                           className={cn(
-                            "rounded-xl p-4 flex flex-col justify-between relative overflow-hidden shadow-md border border-white/10 aspect-[1.75/1] text-white"
+                            "rounded-xl p-3 flex flex-col justify-between relative overflow-hidden shadow-md border border-white/10 aspect-[2.3/1] text-white"
                           )}
                           style={template.id === 'STANDARD' ? { background: `linear-gradient(135deg, ${acc.color}dd, #18181b)` } : {}}
                         >
@@ -703,36 +711,36 @@ export default function UnifiedAccountsPage() {
 
                           <div className="flex justify-between items-start z-10">
                             <div className="flex flex-col">
-                              <span className="text-[9px] opacity-70 uppercase tracking-widest">{template.logoText || acc.institution || 'Credit Card'}</span>
-                              <span className="font-semibold text-xs tracking-wide">{template.cardTitle || cc.cardName}</span>
+                              <span className="text-[8px] opacity-70 uppercase tracking-widest">{template.logoText || acc.institution || 'Credit Card'}</span>
+                              <span className="font-semibold text-[11px] tracking-wide truncate max-w-[130px]">{template.cardTitle || cc.cardName}</span>
                             </div>
                             <div className="flex flex-col items-end opacity-90">
-                              {template.brand === 'visa' && <span className="font-bold italic text-sm tracking-wider">VISA</span>}
+                              {template.brand === 'visa' && <span className="font-bold italic text-xs tracking-wider">VISA</span>}
                               {template.brand === 'master' && (
-                                <div className="flex items-center -space-x-1.5">
-                                  <div className="w-4 h-4 rounded-full bg-red-500/80 mix-blend-multiply" />
-                                  <div className="w-4 h-4 rounded-full bg-yellow-500/80 mix-blend-multiply" />
+                                <div className="flex items-center -space-x-1">
+                                  <div className="w-3.5 h-3.5 rounded-full bg-red-500/80 mix-blend-multiply" />
+                                  <div className="w-3.5 h-3.5 rounded-full bg-yellow-500/80 mix-blend-multiply" />
                                 </div>
                               )}
-                              {template.brand === 'amex' && <span className="font-bold text-[9px] border border-current px-1 tracking-wider uppercase">Amex</span>}
-                              {template.brand === 'rupay' && <span className="font-bold italic text-xs tracking-widest text-orange-400">RuPay</span>}
+                              {template.brand === 'amex' && <span className="font-bold text-[8px] border border-current px-1 tracking-wider uppercase">Amex</span>}
+                              {template.brand === 'rupay' && <span className="font-bold italic text-[10px] tracking-widest text-orange-400">RuPay</span>}
                             </div>
                           </div>
 
-                          <div className="mt-4 z-10 flex flex-col">
-                            <p className="text-[8px] opacity-60 tracking-wider">CARD NUMBER</p>
-                            <p className="text-sm font-mono tracking-[0.18em]">
+                          <div className="mt-2 z-10 flex flex-col">
+                            <p className="text-[7px] opacity-60 tracking-wider">CARD NUMBER</p>
+                            <p className="text-xs font-mono tracking-[0.18em]">
                               {cc.cardNumber ? cc.cardNumber : `•••• •••• •••• ${cc.lastFourDigits || '0000'}`}
                             </p>
                           </div>
 
-                          <div className="flex justify-between items-end text-[10px] z-10 mt-2">
+                          <div className="flex justify-between items-end text-[9px] z-10 mt-1">
                             <div className="space-y-0.5">
-                              <p className="text-[8px] opacity-60 uppercase tracking-wider">Card Holder</p>
+                              <p className="text-[7px] opacity-60 uppercase tracking-wider">Card Holder</p>
                               <p className="font-medium tracking-wide truncate max-w-[130px] uppercase">{cc.cardHolderName || 'VALID USER'}</p>
                             </div>
                             <div className="space-y-0.5 text-right">
-                              <p className="text-[8px] opacity-60 uppercase tracking-wider">Expiry</p>
+                              <p className="text-[7px] opacity-60 uppercase tracking-wider">Expiry</p>
                               <p className="font-medium font-mono">{cc.expiryDate || '12/29'}</p>
                             </div>
                           </div>
@@ -752,7 +760,7 @@ export default function UnifiedAccountsPage() {
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs border-t border-border/30 pt-3">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs border-t border-border/30 pt-3">
                           <div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Outstanding</p>
                             <p className="font-bold text-sm text-destructive">{formatCurrency(cc.outstandingBalance)}</p>
@@ -761,12 +769,27 @@ export default function UnifiedAccountsPage() {
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Available Limit</p>
                             <p className="font-bold text-sm text-success">{formatCurrency(cc.availableCredit)}</p>
                           </div>
-                          {cc.dueDate && (
-                            <div className="flex items-center gap-1.5 col-span-2 text-muted-foreground">
-                              <Calendar className="h-3.5 w-3.5 text-destructive" />
-                              <span>Payment Due: <strong className="text-destructive font-semibold">{cc.dueDate}{getOrdinalSuffix(cc.dueDate)}</strong> of month</span>
-                            </div>
-                          )}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-[10px] bg-accent/20 rounded-xl p-2.5 border border-border/20">
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground font-semibold">Statement Date</span>
+                            <span className="font-medium mt-0.5">
+                              {cc.statementDate ? `${cc.statementDate}${getOrdinalSuffix(cc.statementDate)}` : '—'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col border-l border-border/30 pl-2.5">
+                            <span className="text-muted-foreground font-semibold">Due Date</span>
+                            <span className="font-semibold text-destructive mt-0.5">
+                              {cc.dueDate ? `${cc.dueDate}${getOrdinalSuffix(cc.dueDate)}` : '—'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col border-l border-border/30 pl-2.5">
+                            <span className="text-muted-foreground font-semibold">Last Paid</span>
+                            <span className="font-semibold text-success mt-0.5 truncate" title={cc.lastPaidDate ? new Date(cc.lastPaidDate).toLocaleDateString('en-IN') : undefined}>
+                              {cc.lastPaidDate ? new Date(cc.lastPaidDate).toLocaleDateString('en-IN') : 'No history'}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="border-t border-border/30 pt-3 flex justify-between items-center">
