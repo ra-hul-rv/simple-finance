@@ -492,7 +492,7 @@ export default function UnifiedAccountsPage() {
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || 'ALL')}>
+          <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val || 'ALL')}>
             <SelectTrigger className="w-[180px] bg-background/30 border-border/40 h-10 rounded-xl">
               <SelectValue placeholder="All Assets" />
             </SelectTrigger>
@@ -845,7 +845,7 @@ export default function UnifiedAccountsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Account Type</Label>
-                <Select value={type} onValueChange={(val) => setType(val || 'SAVINGS')} disabled={isPending}>
+                <Select value={type} onValueChange={(val: any) => setType(val || 'SAVINGS')} disabled={isPending}>
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl">
                     <SelectValue placeholder="Type">
                       {type === 'SAVINGS' ? 'Savings Account' : type === 'CURRENT' ? 'Current Checking' : type === 'CASH' ? 'Cash Wallet' : type === 'CREDIT_CARD' ? 'Credit Card' : type === 'FIXED_DEPOSIT' ? 'Fixed Deposit' : type === 'STOCKS' ? 'Stocks Demat' : type === 'MUTUAL_FUNDS' ? 'Mutual Funds' : type === 'CRYPTO' ? 'Crypto Wallet' : type === 'LOAN' ? 'Loan Ledger' : type === 'EPF' ? 'EPF (Retirement)' : type === 'PPF' ? 'PPF Account' : type === 'NPS' ? 'NPS Account' : 'Other Assets'}
@@ -980,7 +980,7 @@ export default function UnifiedAccountsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Icon Symbol</Label>
-                <Select value={icon} onValueChange={(val) => setIcon(val || 'wallet')} disabled={isPending}>
+                <Select value={icon} onValueChange={(val: any) => setIcon(val || 'wallet')} disabled={isPending}>
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl">
                     <SelectValue placeholder="Icon">
                       {icon === 'wallet' ? 'Wallet Icon' : icon === 'banknote' ? 'Banknote Icon' : icon === 'credit-card' ? 'Credit Card Icon' : icon === 'landmark' ? 'Landmark Icon' : 'Trending/Invest Icon'}
@@ -1027,7 +1027,7 @@ export default function UnifiedAccountsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="label-uppercase text-muted-foreground">Card Brand Template</Label>
-                    <Select value={cardTemplate} onValueChange={(val) => setCardTemplate(val || 'STANDARD')} disabled={isPending}>
+                    <Select value={cardTemplate} onValueChange={(val: any) => setCardTemplate(val || 'STANDARD')} disabled={isPending}>
                       <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl">
                         <SelectValue placeholder="Template">
                           {CARD_TEMPLATES.find(t => t.id === cardTemplate)?.name || 'Standard (Theme Color)'}

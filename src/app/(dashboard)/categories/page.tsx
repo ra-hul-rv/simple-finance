@@ -287,7 +287,7 @@ export default function CategoriesPage() {
       </PageHeader>
 
       <div className="flex justify-between items-center bg-card/40 p-1.5 rounded-lg border border-border/50 max-w-[280px]">
-        <Tabs value={currentTab} onValueChange={(val) => {
+        <Tabs value={currentTab} onValueChange={(val: any) => {
           setCurrentTab(val as 'EXPENSE' | 'INCOME');
           setSelectedRootId(null);
           setSelectedSub1Id(null);
@@ -490,7 +490,7 @@ export default function CategoriesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Icon Symbol</Label>
-                <Select value={icon} onValueChange={(val) => setIcon(val || 'tag')} disabled={isPending}>
+                <Select value={icon} onValueChange={(val: any) => setIcon(val || 'tag')} disabled={isPending}>
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Icon">
                       {icon === 'tag' ? 'Tag' : icon === 'utensils' ? 'Utensils' : icon === 'car' ? 'Car' : icon === 'shopping-bag' ? 'Bag' : icon === 'zap' ? 'Zap' : icon === 'film' ? 'Film' : icon === 'heart-pulse' ? 'Heart' : icon === 'graduation-cap' ? 'Cap' : icon}

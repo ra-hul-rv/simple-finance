@@ -38,14 +38,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, ShoppingBag, ShieldCheck, Ticket, Cpu } from 'lucide-react';
+import { User, LogOut, ShoppingBag, ShieldCheck, Ticket, Cpu, Mail, Calendar as CalendarIcon, Users, CreditCard } from 'lucide-react';
 
 const mainNav = [
   { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { title: 'AI Inbox', href: '/inbox', icon: Mail },
   { title: 'Accounts', href: '/accounts', icon: Wallet },
   { title: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
   { title: 'Income', href: '/income', icon: DollarSign },
   { title: 'Categories', href: '/categories', icon: Tag },
+  { title: 'People', href: '/people', icon: Users },
 ];
 
 const financeNav = [
@@ -56,6 +58,7 @@ const financeNav = [
   { title: 'Investments', href: '/investments', icon: TrendingUp },
   { title: 'Debts (+)', href: '/debts', icon: ArrowDownRight },
   { title: 'Loans (-)', href: '/loans', icon: ArrowUpRight },
+  { title: 'EMIs', href: '/emis', icon: CreditCard },
   { title: 'Shopping List', href: '/shopping', icon: ShoppingBag },
   { title: 'Warranties', href: '/warranties', icon: ShieldCheck },
   { title: 'Coupons Wallet', href: '/coupons', icon: Ticket },
@@ -63,6 +66,7 @@ const financeNav = [
 ];
 
 const analyticsNav = [
+  { title: 'Calendar', href: '/calendar', icon: CalendarIcon },
   { title: 'Analytics', href: '/analytics', icon: BarChart3 },
   { title: 'Reports', href: '/reports', icon: FileText },
 ];
@@ -140,6 +144,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             const orderIds = data.sidebarOrder.split(',');
             const idToHref: Record<string, string> = {
               dashboard: '/',
+              inbox: '/inbox',
               accounts: '/accounts',
               transactions: '/transactions',
               income: '/income',
@@ -155,6 +160,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               warranties: '/warranties',
               coupons: '/coupons',
               automations: '/automations',
+              calendar: '/calendar',
               analytics: '/analytics',
               reports: '/reports'
             };

@@ -44,23 +44,7 @@ export function useFormDraft<T extends Record<string, any>>(
     prevIsOpenRef.current = isOpen;
   }, [isOpen, key]);
 
-  // Save draft updates to localStorage without triggering loops
-  useEffect(() => {
-    if (isOpen) {
-      const currentFields = fieldsRef.current;
-      const currentInitial = initialValuesRef.current;
-
-      const hasChanges = Object.keys(currentFields).some(
-        (k) => currentFields[k] !== currentInitial[k] && currentFields[k] !== '' && currentFields[k] !== null
-      );
-
-      if (hasChanges) {
-        localStorage.setItem(`sf_draft_${key}`, JSON.stringify(currentFields));
-      } else {
-        localStorage.removeItem(`sf_draft_${key}`);
-      }
-    }
-  }, [fields, isOpen, key]);
+  // Auto-saving removed to require explicit user action for drafts
 
   // Clear draft helper
   const clearDraft = useCallback(() => {

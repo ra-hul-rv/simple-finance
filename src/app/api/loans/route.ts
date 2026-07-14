@@ -12,6 +12,7 @@ const loanSchema = z.object({
   color: z.string().optional(),
   notes: z.string().optional().nullable(),
   accountId: z.string().uuid().optional().nullable(),
+  personId: z.string().uuid().optional().nullable(),
 });
 
 export async function GET() {

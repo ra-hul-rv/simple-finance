@@ -246,7 +246,7 @@ export default function BudgetsPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label className="label-uppercase text-muted-foreground">Category</Label>
-              <Select value={selectedCategoryId} onValueChange={(val) => setSelectedCategoryId(val || '')} disabled={isPending}>
+              <Select value={selectedCategoryId} onValueChange={(val: any) => setSelectedCategoryId(val || '')} disabled={isPending}>
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Select category">
                     {categories.find(c => c.id === selectedCategoryId)?.name || 'Select category'}

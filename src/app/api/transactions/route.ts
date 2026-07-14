@@ -24,6 +24,8 @@ const transactionSchema = z.object({
   accountId: z.string().uuid('Invalid account ID'),
   categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
   transferToAccountId: z.string().uuid('Invalid destination account ID').optional().nullable(),
+  personId: z.string().uuid('Invalid person ID').optional().nullable(),
+  isLending: z.boolean().optional().default(false),
   tags: z.array(z.string()).optional().default([]),
 });
 
@@ -67,6 +69,11 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+    const allowedSortFields = ['date', 'amount', 'description', 'createdAt'];
+    const rawSortBy = searchParams.get('sortBy') || 'date';
+    const sortBy = allowedSortFields.includes(rawSortBy) ? rawSortBy : 'date';
+    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
+
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
@@ -109,7 +116,7 @@ export async function GET(request: Request) {
           transferToAccount: true,
           attachments: true,
         },
-        orderBy: { date: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         skip,
         take: limit,
       }),
@@ -224,6 +231,7 @@ export async function POST(request: Request) {
           accountId: validated.accountId,
           categoryId: validated.categoryId || null,
           transferToAccountId: validated.transferToAccountId || null,
+          personId: validated.personId || null,
           userId: session.user.id,
         },
       });
@@ -291,6 +299,29 @@ export async function POST(request: Request) {
           await tx.budget.update({
             where: { id: budget.id },
             data: { spent: { increment: validated.amount } },
+          });
+        }
+      }
+
+      // 4. Auto-create Loan if isLending is true
+      if (validated.isLending && validated.personId) {
+        const person = await tx.person.findUnique({ where: { id: validated.personId } });
+        if (person) {
+          const loan = await tx.loan.create({
+            data: {
+              borrowerName: person.name,
+              totalLent: validated.amount,
+              outstandingBalance: validated.amount,
+              status: 'ACTIVE',
+              userId: session.user.id,
+              personId: person.id,
+              accountId: validated.accountId,
+            }
+          });
+          
+          await tx.transaction.update({
+            where: { id: createdTx.id },
+            data: { loanId: loan.id }
           });
         }
       }

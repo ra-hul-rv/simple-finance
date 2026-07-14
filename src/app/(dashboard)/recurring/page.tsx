@@ -917,7 +917,7 @@ export default function BillsAndRecurringPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Source Ledger Account</Label>
-                <Select value={accountId} onValueChange={(val) => setAccountId(val || '')} disabled={isPending}>
+                <Select value={accountId} onValueChange={(val: any) => setAccountId(val || '')} disabled={isPending}>
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select Account">
                       {accounts.find(a => a.id === accountId)?.name || 'Select Account'}

@@ -22,6 +22,9 @@ import {
   Building,
   AlertCircle,
   Clock,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -62,6 +65,10 @@ export default function AccountDetailPage({
   const [account, setAccount] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Sorting
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const fetchDetails = async () => {
     try {
@@ -72,7 +79,7 @@ export default function AccountDetailPage({
       setAccount(accData);
 
       // 2. Fetch transactions for this account
-      const txRes = await fetch(`/api/transactions?accountId=${id}&limit=100`);
+      const txRes = await fetch(`/api/transactions?accountId=${id}&limit=100&sortBy=${sortBy}&sortOrder=${sortOrder}`);
       if (!txRes.ok) throw new Error('Failed to load transactions');
       const txData = await txRes.json();
       setTransactions(txData.transactions);
@@ -86,7 +93,21 @@ export default function AccountDetailPage({
 
   useEffect(() => {
     fetchDetails();
-  }, [id]);
+  }, [id, sortBy, sortOrder]);
+
+  const toggleSort = (column: 'date' | 'amount' | 'description') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  };
+
+  const renderSortIcon = (column: 'date' | 'amount' | 'description') => {
+    if (sortBy !== column) return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+  };
 
   if (loading) {
     return (
@@ -170,10 +191,25 @@ export default function AccountDetailPage({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="label-uppercase text-[10px]">Date</TableHead>
-                      <TableHead className="label-uppercase text-[10px]">Description</TableHead>
+                      <TableHead 
+                        className="label-uppercase text-[10px] cursor-pointer select-none"
+                        onClick={() => toggleSort('date')}
+                      >
+                        Date {renderSortIcon('date')}
+                      </TableHead>
+                      <TableHead 
+                        className="label-uppercase text-[10px] cursor-pointer select-none"
+                        onClick={() => toggleSort('description')}
+                      >
+                        Description {renderSortIcon('description')}
+                      </TableHead>
                       <TableHead className="label-uppercase text-[10px]">Category</TableHead>
-                      <TableHead className="text-right label-uppercase text-[10px]">Amount</TableHead>
+                      <TableHead 
+                        className="text-right label-uppercase text-[10px] cursor-pointer select-none"
+                        onClick={() => toggleSort('amount')}
+                      >
+                        Amount {renderSortIcon('amount')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

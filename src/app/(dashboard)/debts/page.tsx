@@ -553,7 +553,7 @@ export default function DebtsPage() {
 
               <div className="space-y-1">
                 <Label htmlFor="account" className="text-xs">Linked Account (For settlement)</Label>
-                <Select value={accountId} onValueChange={(val) => setAccountId(val || '')}>
+                <Select value={accountId} onValueChange={(val: any) => setAccountId(val || '')}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue>
                       {accounts.find(a => a.id === accountId)?.name || 'Select Account'}
@@ -644,7 +644,7 @@ export default function DebtsPage() {
 
                 <div className="space-y-1">
                   <Label htmlFor="repayFrom" className="text-xs">From Account</Label>
-                  <Select value={repayAccountId} onValueChange={(val) => setRepayAccountId(val || '')}>
+                  <Select value={repayAccountId} onValueChange={(val: any) => setRepayAccountId(val || '')}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue>
                         {accounts.find(a => a.id === repayAccountId)?.name || 'Select Account'}

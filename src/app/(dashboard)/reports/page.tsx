@@ -163,7 +163,7 @@ export default function ReportsPage() {
 
           <div className="space-y-1.5">
             <Label className="label-uppercase text-muted-foreground">Transaction Type</Label>
-            <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || 'ALL')}>
+            <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val || 'ALL')}>
               <SelectTrigger className="bg-background">
                 <SelectValue placeholder="All Types">
                   {typeFilter === 'ALL' ? 'All Types' : typeFilter}
@@ -181,7 +181,7 @@ export default function ReportsPage() {
 
           <div className="space-y-1.5">
             <Label className="label-uppercase text-muted-foreground">Ledger Account</Label>
-            <Select value={accountFilter} onValueChange={(val) => setAccountFilter(val || 'ALL')}>
+            <Select value={accountFilter} onValueChange={(val: any) => setAccountFilter(val || 'ALL')}>
               <SelectTrigger className="bg-background">
                 <SelectValue placeholder="All Accounts">
                   {accountFilter === 'ALL' ? 'All Accounts' : accounts.find(a => a.id === accountFilter)?.name || accountFilter}
@@ -198,7 +198,7 @@ export default function ReportsPage() {
 
           <div className="space-y-1.5">
             <Label className="label-uppercase text-muted-foreground">Category</Label>
-            <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || 'ALL')}>
+            <Select value={categoryFilter} onValueChange={(val: any) => setCategoryFilter(val || 'ALL')}>
               <SelectTrigger className="bg-background">
                 <SelectValue placeholder="All Categories">
                   {categoryFilter === 'ALL' ? 'All Categories' : categories.find(c => c.id === categoryFilter)?.name || categoryFilter}

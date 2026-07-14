@@ -71,7 +71,7 @@ export async function PUT(
       return NextResponse.json(result);
     } else {
       // General update
-      const { borrowerName, totalLent, outstandingBalance, dueDate, interestRate, color, notes, status, accountId } = body;
+      const { borrowerName, totalLent, outstandingBalance, dueDate, interestRate, color, notes, status, accountId, personId } = body;
 
       const updated = await prisma.loan.update({
         where: { id, userId: session.user.id },
@@ -85,6 +85,7 @@ export async function PUT(
           notes,
           status,
           accountId,
+          personId,
         },
       });
 

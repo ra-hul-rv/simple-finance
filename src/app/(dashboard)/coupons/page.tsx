@@ -447,7 +447,7 @@ export default function CouponsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Discount Type Filter */}
-          <Select value={filterType} onValueChange={(val) => setFilterType(val || 'ALL')}>
+          <Select value={filterType} onValueChange={(val: any) => setFilterType(val || 'ALL')}>
             <SelectTrigger className="bg-background/20 border-border/40 h-10 rounded-xl text-xs w-[150px]">
               <SelectValue placeholder="Discount Type" />
             </SelectTrigger>
@@ -461,7 +461,7 @@ export default function CouponsPage() {
           </Select>
 
           {/* Status Filter */}
-          <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val || 'ALL')}>
+          <Select value={filterStatus} onValueChange={(val: any) => setFilterStatus(val || 'ALL')}>
             <SelectTrigger className="bg-background/20 border-border/40 h-10 rounded-xl text-xs w-[140px]">
               <SelectValue placeholder="Usage Status" />
             </SelectTrigger>
@@ -721,7 +721,7 @@ export default function CouponsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="label-uppercase text-muted-foreground">Discount Type</Label>
-                  <Select value={discountType} onValueChange={(val) => setDiscountType(val || 'PERCENTAGE')}>
+                  <Select value={discountType} onValueChange={(val: any) => setDiscountType(val || 'PERCENTAGE')}>
                     <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
                       <SelectValue placeholder="Discount Type">
                         {discountTypeLabels[discountType] || 'Percentage (%)'}

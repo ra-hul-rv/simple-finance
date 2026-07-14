@@ -257,7 +257,7 @@ export default function SubscriptionsPage() {
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || 'ALL')}>
+          <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val || 'ALL')}>
             <SelectTrigger className="w-[150px] bg-background/30 border-border/40 h-10 rounded-xl">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
@@ -413,7 +413,7 @@ export default function SubscriptionsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Billing Status</Label>
-                <Select value={status} onValueChange={(val) => setStatus(val as any)} disabled={isPending}>
+                <Select value={status} onValueChange={(val: any) => setStatus(val as any)} disabled={isPending}>
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl">
                     <SelectValue placeholder="Status">
                       {status === 'ACTIVE' ? 'Active' : status === 'PAUSED' ? 'Paused' : status === 'CANCELLED' ? 'Cancelled' : 'Expired'}
@@ -480,7 +480,7 @@ export default function SubscriptionsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Auto Pay Via Ledger</Label>
-                <Select value={accountId} onValueChange={(val) => setAccountId(val || '')} disabled={isPending}>
+                <Select value={accountId} onValueChange={(val: any) => setAccountId(val || '')} disabled={isPending}>
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl">
                     <SelectValue placeholder="Select Account">
                       {accounts.find(a => a.id === accountId)?.name || 'Select Account'}

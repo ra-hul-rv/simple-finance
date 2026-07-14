@@ -759,7 +759,7 @@ export default function ShoppingPage() {
 
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Ledger Account</Label>
-                <Select value={convertAccountId} onValueChange={(val) => setConvertAccountId(val || '')}>
+                <Select value={convertAccountId} onValueChange={(val: any) => setConvertAccountId(val || '')}>
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
                     <SelectValue placeholder="Select Account">
                       {accounts.find(a => a.id === convertAccountId)?.name || 'Select Account'}
@@ -777,7 +777,7 @@ export default function ShoppingPage() {
 
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Expense Category</Label>
-                <Select value={convertCategoryId} onValueChange={(val) => setConvertCategoryId(val || '')}>
+                <Select value={convertCategoryId} onValueChange={(val: any) => setConvertCategoryId(val || '')}>
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
                     <SelectValue placeholder="Select Category">
                       {categories.find(c => c.id === convertCategoryId)?.name || 'Select Category'}

@@ -6,7 +6,26 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+const SelectLabelContext = React.createContext<{
+  labels: Record<string, string>;
+  registerLabel: (value: string, label: string) => void;
+} | null>(null);
+
+function Select(
+  props: Omit<SelectPrimitive.Root.Props<any, any>, 'onValueChange'> & { onValueChange?: (value: any) => void }
+) {
+  const [labels, setLabels] = React.useState<Record<string, string>>({});
+  
+  const registerLabel = React.useCallback((value: string, label: string) => {
+    setLabels(prev => prev[value] === label ? prev : { ...prev, [value]: label });
+  }, []);
+
+  return (
+    <SelectLabelContext.Provider value={{ labels, registerLabel }}>
+      <SelectPrimitive.Root {...(props as any)} />
+    </SelectLabelContext.Provider>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -18,13 +37,35 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({ className, children, ...props }: SelectPrimitive.Value.Props) {
+  const ctx = React.useContext(SelectLabelContext);
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
+      data-bugfix="v2"
       className={cn("flex flex-1 text-left", className)}
       {...props}
-    />
+    >
+      {(value: any) => {
+        if (children) {
+          if (typeof children === 'function') {
+            return (children as any)(value);
+          }
+          return children;
+        }
+        
+        if (value == null || value === '') return props.placeholder;
+        
+        // If there's a selected value, try to get it from our global registry
+        if (ctx && ctx.labels[value]) {
+          return ctx.labels[value];
+        }
+        
+        // Fallback to Base UI's default text
+        return value;
+      }}
+    </SelectPrimitive.Value>
   )
 }
 
@@ -113,6 +154,27 @@ function SelectItem({
   children,
   ...props
 }: SelectPrimitive.Item.Props) {
+  const ctx = React.useContext(SelectLabelContext);
+  
+  React.useEffect(() => {
+    if (ctx && props.value != null) {
+      let textLabel = '';
+      if (typeof children === 'string') {
+        textLabel = children;
+      } else if (typeof children === 'number') {
+        textLabel = String(children);
+      } else if (Array.isArray(children)) {
+        textLabel = children
+          .map(c => (typeof c === 'string' || typeof c === 'number' ? c : ''))
+          .join('');
+      }
+      
+      if (textLabel) {
+        ctx.registerLabel(String(props.value), textLabel);
+      }
+    }
+  }, [ctx, props.value, children]);
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"

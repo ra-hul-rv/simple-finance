@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
             {/* Account Selector */}
-            <Select value={accountFilter} onValueChange={(val) => setAccountFilter(val || 'ALL')}>
+            <Select value={accountFilter} onValueChange={(val: any) => setAccountFilter(val || 'ALL')}>
               <SelectTrigger className="h-9 min-w-[130px] bg-background/30">
                 <SelectValue placeholder="Account">
                   {accountFilter === 'ALL' ? 'All Accounts' : accounts.find(a => a.id === accountFilter)?.name || accountFilter}
@@ -131,7 +131,7 @@ export default function AnalyticsPage() {
             </Select>
 
             {/* Month Selector */}
-            <Select value={monthFilter} onValueChange={(val) => setMonthFilter(val || 'ALL')}>
+            <Select value={monthFilter} onValueChange={(val: any) => setMonthFilter(val || 'ALL')}>
               <SelectTrigger className="h-9 min-w-[120px] bg-background/30">
                 <SelectValue placeholder="Month">
                   {monthFilter === 'ALL' ? 'All Months' : `Month ${monthFilter}`}
@@ -148,7 +148,7 @@ export default function AnalyticsPage() {
             </Select>
 
             {/* Year Selector */}
-            <Select value={yearFilter} onValueChange={(val) => setYearFilter(val || 'ALL')}>
+            <Select value={yearFilter} onValueChange={(val: any) => setYearFilter(val || 'ALL')}>
               <SelectTrigger className="h-9 min-w-[100px] bg-background/30">
                 <SelectValue placeholder="Year">
                   {yearFilter === 'ALL' ? 'All Years' : yearFilter}

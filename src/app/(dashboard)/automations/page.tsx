@@ -547,7 +547,7 @@ export default function AutomationsPage() {
                 <Label className="label-uppercase text-muted-foreground">Trigger Type</Label>
                 <Select 
                   value={triggerType} 
-                  onValueChange={(val) => setTriggerType(val as any)}
+                  onValueChange={(val: any) => setTriggerType(val as any)}
                   disabled={!!editingRule}
                 >
                   <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
@@ -583,7 +583,7 @@ export default function AutomationsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Field</Label>
-                      <Select value={condField} onValueChange={(val) => setCondField(val || 'description')}>
+                      <Select value={condField} onValueChange={(val: any) => setCondField(val || 'description')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -598,7 +598,7 @@ export default function AutomationsPage() {
 
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Operator</Label>
-                      <Select value={condOperator} onValueChange={(val) => setCondOperator(val || 'contains')}>
+                      <Select value={condOperator} onValueChange={(val: any) => setCondOperator(val || 'contains')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -614,7 +614,7 @@ export default function AutomationsPage() {
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Value</Label>
                       {condField === 'accountId' ? (
-                        <Select value={condValue} onValueChange={(val) => setCondValue(val || '')}>
+                        <Select value={condValue} onValueChange={(val: any) => setCondValue(val || '')}>
                           <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                             <SelectValue placeholder="Select Account" />
                           </SelectTrigger>
@@ -625,7 +625,7 @@ export default function AutomationsPage() {
                           </SelectContent>
                         </Select>
                       ) : condField === 'type' ? (
-                        <Select value={condValue} onValueChange={(val) => setCondValue(val || '')}>
+                        <Select value={condValue} onValueChange={(val: any) => setCondValue(val || '')}>
                           <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                             <SelectValue placeholder="Select Type" />
                           </SelectTrigger>
@@ -654,7 +654,7 @@ export default function AutomationsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Action Type</Label>
-                      <Select value={actType} onValueChange={(val) => setActType(val || 'setCategory')}>
+                      <Select value={actType} onValueChange={(val: any) => setActType(val || 'setCategory')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -668,7 +668,7 @@ export default function AutomationsPage() {
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Value</Label>
                       {actType === 'setCategory' ? (
-                        <Select value={actValue} onValueChange={(val) => setActValue(val || '')}>
+                        <Select value={actValue} onValueChange={(val: any) => setActValue(val || '')}>
                           <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                             <SelectValue placeholder="Select Category" />
                           </SelectTrigger>
@@ -702,7 +702,7 @@ export default function AutomationsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Frequency</Label>
-                      <Select value={schedFreq} onValueChange={(val) => setSchedFreq(val || 'MONTHLY')}>
+                      <Select value={schedFreq} onValueChange={(val: any) => setSchedFreq(val || 'MONTHLY')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -729,7 +729,7 @@ export default function AutomationsPage() {
 
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Type</Label>
-                      <Select value={schedType} onValueChange={(val) => setSchedType(val || 'EXPENSE')}>
+                      <Select value={schedType} onValueChange={(val: any) => setSchedType(val || 'EXPENSE')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue />
                         </SelectTrigger>
@@ -744,7 +744,7 @@ export default function AutomationsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Ledger Account</Label>
-                      <Select value={schedAccountId} onValueChange={(val) => setSchedAccountId(val || '')}>
+                      <Select value={schedAccountId} onValueChange={(val: any) => setSchedAccountId(val || '')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue placeholder="Select Account" />
                         </SelectTrigger>
@@ -758,7 +758,7 @@ export default function AutomationsPage() {
 
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground">Category</Label>
-                      <Select value={schedCategoryId} onValueChange={(val) => setSchedCategoryId(val || '')}>
+                      <Select value={schedCategoryId} onValueChange={(val: any) => setSchedCategoryId(val || '')}>
                         <SelectTrigger className="h-10 rounded-xl bg-background/25 border-border/40 text-xs">
                           <SelectValue placeholder="Select Category" />
                         </SelectTrigger>

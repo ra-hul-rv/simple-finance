@@ -64,12 +64,14 @@ interface Account {
 export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'SETTLED'>('ACTIVE');
 
   // New/Edit Dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
+  const [personId, setPersonId] = useState('');
   const [borrowerName, setBorrowerName] = useState('');
   const [totalLent, setTotalLent] = useState('');
   const [outstandingBalance, setOutstandingBalance] = useState('');
@@ -92,12 +94,14 @@ export default function LoansPage() {
   const fetchLoansAndAccounts = async () => {
     setLoading(true);
     try {
-      const [loansRes, accRes] = await Promise.all([
+      const [loansRes, accRes, pplRes] = await Promise.all([
         fetch('/api/loans'),
         fetch('/api/accounts'),
+        fetch('/api/people'),
       ]);
       if (loansRes.ok) setLoans(await loansRes.json());
       if (accRes.ok) setAccounts(await accRes.json());
+      if (pplRes.ok) setPeople(await pplRes.json());
     } catch (err) {
       console.error(err);
       toast.error('Failed to load loans data');
@@ -112,6 +116,7 @@ export default function LoansPage() {
 
   const handleOpenAddDialog = () => {
     setEditingLoan(null);
+    setPersonId('');
     setBorrowerName('');
     setTotalLent('');
     setOutstandingBalance('');
@@ -123,8 +128,9 @@ export default function LoansPage() {
     setIsDialogOpen(true);
   };
 
-  const handleOpenEditDialog = (loan: Loan) => {
-    setEditingLoan(loan);
+  const handleOpenEditDialog = (loan: Loan & { personId?: string }) => {
+    setEditingLoan(loan as any);
+    setPersonId(loan.personId || '');
     setBorrowerName(loan.borrowerName);
     setTotalLent(loan.totalLent.toString());
     setOutstandingBalance(loan.outstandingBalance.toString());
@@ -163,6 +169,7 @@ export default function LoansPage() {
           notes,
           accountId: accountId || null,
           color,
+          personId: personId || null,
         };
 
         const url = editingLoan ? `/api/loans/${editingLoan.id}` : '/api/loans';
@@ -486,14 +493,41 @@ export default function LoansPage() {
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label htmlFor="borrower" className="text-xs">Borrower Name *</Label>
-                <Input
-                  id="borrower"
-                  placeholder="e.g. Aunt Emilly, John Doe"
-                  value={borrowerName}
-                  onChange={(e) => setBorrowerName(e.target.value)}
-                  className="h-9 text-xs"
-                />
+                <Label className="text-xs">Person / Borrower *</Label>
+                <Select 
+                  value={personId} 
+                  onValueChange={(val: any) => {
+                    setPersonId(val || '');
+                    const person = people.find(p => p.id === val);
+                    if (person) setBorrowerName(person.name);
+                    else setBorrowerName('');
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select Person">
+                      {people.find(p => p.id === personId)?.name || (borrowerName || 'Select Person')}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="glass-select">
+                    {people.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!personId && (
+                  <div className="mt-2">
+                    <Label htmlFor="borrower" className="text-xs text-muted-foreground">Or enter name manually (legacy)</Label>
+                    <Input
+                      id="borrower"
+                      placeholder="e.g. Aunt Emilly, John Doe"
+                      value={borrowerName}
+                      onChange={(e) => setBorrowerName(e.target.value)}
+                      className="h-9 text-xs mt-1"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -553,7 +587,7 @@ export default function LoansPage() {
 
               <div className="space-y-1">
                 <Label htmlFor="account" className="text-xs">Receives Into Account</Label>
-                <Select value={accountId} onValueChange={(val) => setAccountId(val || '')}>
+                <Select value={accountId} onValueChange={(val: any) => setAccountId(val || '')}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue>
                       {accounts.find(a => a.id === accountId)?.name || 'Select Account'}
@@ -644,7 +678,7 @@ export default function LoansPage() {
 
                 <div className="space-y-1">
                   <Label htmlFor="collectTo" className="text-xs">To Account</Label>
-                  <Select value={collectAccountId} onValueChange={(val) => setCollectAccountId(val || '')}>
+                  <Select value={collectAccountId} onValueChange={(val: any) => setCollectAccountId(val || '')}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue>
                         {accounts.find(a => a.id === collectAccountId)?.name || 'Select Account'}

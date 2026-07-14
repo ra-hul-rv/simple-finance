@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,11 +16,13 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useSession } from 'next-auth/react';
-import { Settings, User, Trash2, Upload, Loader2, KeyRound, BarChart3, ChevronUp, ChevronDown, Menu, CreditCard, Plus, Edit2, ArrowDownRight, ArrowUpRight, Zap, X, Check, Type } from 'lucide-react';
+import { Settings, User, Trash2, Upload, Loader2, KeyRound, BarChart3, ChevronUp, ChevronDown, Menu, CreditCard, Plus, Edit2, ArrowDownRight, ArrowUpRight, Zap, X, Check, Type, FileSpreadsheet, Webhook, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ALL_NAV_ITEMS = [
   { id: 'dashboard', title: 'Dashboard', href: '/' },
+  { id: 'inbox', title: 'AI Inbox', href: '/inbox' },
+  { id: 'calendar', title: 'Calendar', href: '/calendar' },
   { id: 'accounts', title: 'Accounts Ledger', href: '/accounts' },
   { id: 'transactions', title: 'Transactions Ledger', href: '/transactions' },
   { id: 'income', title: 'Income tracking', href: '/income' },
@@ -46,30 +49,12 @@ const DEFAULT_SECTION_LABELS = {
   system: 'System',
 };
 
-interface FlowTypeItem {
-  id: string;
-  name: string;
-  direction: string;
-  color: string | null;
-  description: string | null;
-  isActive: boolean;
-}
-
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [isPending, startTransition] = useTransition();
 
   const [sidebarItems, setSidebarItems] = useState(ALL_NAV_ITEMS);
   const [creditCards, setCreditCards] = useState<any[]>([]);
-
-  // Flow Types state
-  const [flowTypes, setFlowTypes] = useState<FlowTypeItem[]>([]);
-  const [newFlowName, setNewFlowName] = useState('');
-  const [newFlowDirection, setNewFlowDirection] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
-  const [newFlowColor, setNewFlowColor] = useState('#6366f1');
-  const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
-  const [editFlowName, setEditFlowName] = useState('');
-  const [editFlowDirection, setEditFlowDirection] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
 
   // Section labels state
   const [sectionLabels, setSectionLabels] = useState(DEFAULT_SECTION_LABELS);
@@ -86,6 +71,10 @@ export default function SettingsPage() {
   const [showDashboardCharts, setShowDashboardCharts] = useState(true);
   const [showAccountsCharts, setShowAccountsCharts] = useState(true);
   const [showBillsCharts, setShowBillsCharts] = useState(true);
+
+  // Webhook state
+  const [webhookToken, setWebhookToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
 
   // CSV Import state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -107,6 +96,7 @@ export default function SettingsPage() {
         if (data.showDashboardCharts !== undefined) setShowDashboardCharts(data.showDashboardCharts);
         if (data.showAccountsCharts !== undefined) setShowAccountsCharts(data.showAccountsCharts);
         if (data.showBillsCharts !== undefined) setShowBillsCharts(data.showBillsCharts);
+        if (data.webhookToken !== undefined) setWebhookToken(data.webhookToken);
 
         if (data.sidebarOrder) {
           const order = data.sidebarOrder.split(',');
@@ -142,12 +132,6 @@ export default function SettingsPage() {
       if (cardsRes.ok) {
         const cardsData = await cardsRes.json();
         setCreditCards(cardsData);
-      }
-
-      const ftRes = await fetch('/api/flow-types');
-      if (ftRes.ok) {
-        const ftData = await ftRes.json();
-        setFlowTypes(ftData);
       }
     } catch (err) {
       console.error(err);
@@ -230,72 +214,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAddFlowType = async () => {
-    if (!newFlowName.trim()) {
-      toast.error('Flow name is required');
-      return;
-    }
-    try {
-      const res = await fetch('/api/flow-types', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newFlowName.trim(),
-          direction: newFlowDirection,
-          color: newFlowColor,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed to create flow type');
-      const newFt = await res.json();
-      setFlowTypes([...flowTypes, newFt]);
-      setNewFlowName('');
-      toast.success('Custom flow type created successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to create flow type');
-    }
-  };
-
-  const handleUpdateFlowType = async (id: string) => {
-    if (!editFlowName.trim()) {
-      toast.error('Flow name is required');
-      return;
-    }
-    try {
-      const res = await fetch(`/api/flow-types/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editFlowName.trim(),
-          direction: editFlowDirection,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed to update flow type');
-      const updated = await res.json();
-      setFlowTypes(flowTypes.map(f => f.id === id ? updated : f));
-      setEditingFlowId(null);
-      toast.success('Flow type updated successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to update flow type');
-    }
-  };
-
-  const handleDeleteFlowType = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this flow type?')) return;
-    try {
-      const res = await fetch(`/api/flow-types/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to delete flow type');
-      setFlowTypes(flowTypes.filter(f => f.id !== id));
-      toast.success('Flow type deleted successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to delete flow type');
-    }
-  };
-
   const startEditingSection = (key: string) => {
     setEditingSectionKey(key);
     setEditSectionValue(sectionLabels[key as keyof typeof sectionLabels] || '');
@@ -308,6 +226,35 @@ export default function SettingsPage() {
       [editingSectionKey]: editSectionValue.trim() || DEFAULT_SECTION_LABELS[editingSectionKey as keyof typeof DEFAULT_SECTION_LABELS]
     }));
     setEditingSectionKey(null);
+  };
+
+  const handleGenerateWebhookToken = async () => {
+    try {
+      setGeneratingToken(true);
+      const res = await fetch('/api/settings/webhook-token', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to generate token');
+      const data = await res.json();
+      setWebhookToken(data.token);
+      toast.success('Generated new Webhook Token successfully');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate token');
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  const copyWebhookUrl = () => {
+    if (!webhookToken) return;
+    const url = `${window.location.origin}/api/webhooks/n8n`;
+    navigator.clipboard.writeText(url);
+    toast.success('Webhook URL copied to clipboard');
+  };
+
+  const copyWebhookToken = () => {
+    if (!webhookToken) return;
+    navigator.clipboard.writeText(webhookToken);
+    toast.success('Webhook Token copied to clipboard');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -451,7 +398,7 @@ export default function SettingsPage() {
                 <Label className="font-semibold block">Currency Format</Label>
                 <span className="text-xs text-muted-foreground">Default ledger symbol mapping</span>
               </div>
-              <Select value={currency} onValueChange={(val) => setCurrency(val || 'INR')}>
+              <Select value={currency} onValueChange={(val: any) => setCurrency(val || 'INR')}>
                 <SelectTrigger className="bg-background w-28">
                   <SelectValue placeholder="Currency">
                     {currency}
@@ -470,7 +417,7 @@ export default function SettingsPage() {
                 <Label className="font-semibold block">Date Format</Label>
                 <span className="text-xs text-muted-foreground">Calendar display standards</span>
               </div>
-              <Select value={dateFormat} onValueChange={(val) => setDateFormat(val || 'dd/MM/yyyy')}>
+              <Select value={dateFormat} onValueChange={(val: any) => setDateFormat(val || 'dd/MM/yyyy')}>
                 <SelectTrigger className="bg-background w-32">
                   <SelectValue placeholder="Format">
                     {dateFormat}
@@ -488,7 +435,7 @@ export default function SettingsPage() {
                 <Label className="font-semibold block">Locale standards</Label>
                 <span className="text-xs text-muted-foreground">Local timezone standards</span>
               </div>
-              <Select value={locale} onValueChange={(val) => setLocale(val || 'en-IN')}>
+              <Select value={locale} onValueChange={(val: any) => setLocale(val || 'en-IN')}>
                 <SelectTrigger className="bg-background w-28">
                   <SelectValue placeholder="Locale">
                     {locale}
@@ -696,157 +643,48 @@ export default function SettingsPage() {
         </CardFooter>
       </Card>
 
-      {/* Custom Flow Types Configuration Card */}
-      <Card className="glass border-border bg-card/60 backdrop-blur-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-amber-500" />
-            Custom Flow Types Configuration
-          </CardTitle>
-          <CardDescription>Create, edit, or delete custom transaction flows to use in your ledgers</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Add new flow type */}
-          <div className="p-4 rounded-xl border border-border/20 bg-background/20 space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Add New Custom Flow Type</h4>
-            <div className="grid gap-4 md:grid-cols-3 items-end">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground font-semibold">Flow Name</Label>
-                <Input
-                  placeholder="e.g. Salary, Rent, Taxes"
-                  value={newFlowName}
-                  onChange={(e) => setNewFlowName(e.target.value)}
-                  className="h-10 px-3 bg-background/50 rounded-lg"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground font-semibold">Direction</Label>
-                <Select
-                  value={newFlowDirection}
-                  onValueChange={(val) => setNewFlowDirection(val as any)}
-                >
-                  <SelectTrigger className="h-10 bg-background/50 rounded-lg">
-                    <SelectValue placeholder="Select Direction" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EXPENSE">Outflow (Expense)</SelectItem>
-                    <SelectItem value="INCOME">Inflow (Income)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1.5">
-                  <Label className="text-xs text-muted-foreground font-semibold">Label Color</Label>
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="color"
-                      value={newFlowColor}
-                      onChange={(e) => setNewFlowColor(e.target.value)}
-                      className="h-10 w-12 bg-transparent cursor-pointer rounded-lg border border-border/30"
-                    />
-                    <Input
-                      value={newFlowColor}
-                      onChange={(e) => setNewFlowColor(e.target.value)}
-                      className="h-10 px-3 bg-background/50 rounded-lg font-mono text-xs"
-                    />
-                  </div>
-                </div>
-                <Button onClick={handleAddFlowType} className="h-10 gradient-primary text-white font-semibold px-4 rounded-lg">
-                  <Plus className="h-4 w-4 mr-1.5" /> Add
-                </Button>
-              </div>
-            </div>
-          </div>
+      {/* Sub-Pages Configuration Dashboard */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="glass border-border bg-card/60 backdrop-blur-xl hover:border-primary/30 transition-all duration-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-500 animate-pulse" />
+              Custom Flow Types Settings
+            </CardTitle>
+            <CardDescription>Configure personalized transaction flow names and label colors</CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground min-h-[60px]">
+            Define custom flows (e.g., Side Hustle, Rent Outflow, Taxes) to tag and classify your transactions separately from standard categories.
+          </CardContent>
+          <CardFooter>
+            <Link href="/settings/flow-types" className="w-full">
+              <Button className="w-full gradient-primary text-white font-semibold">
+                Configure Flow Types →
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
 
-          {/* Flow Types list */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Existing Custom Flow Types</h4>
-            {flowTypes.length === 0 ? (
-              <div className="text-center py-6 text-xs text-muted-foreground border border-dashed rounded-xl bg-background/5">
-                No custom flow types defined yet. Use the builder above to add one.
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {flowTypes.map((ft) => (
-                  <div key={ft.id} className="p-3.5 rounded-xl border border-border/20 bg-background/10 space-y-3 flex flex-col justify-between">
-                    {editingFlowId === ft.id ? (
-                      <div className="space-y-2">
-                        <Input
-                          value={editFlowName}
-                          onChange={(e) => setEditFlowName(e.target.value)}
-                          className="h-9 px-3 bg-background/50 rounded-lg text-xs"
-                        />
-                        <Select
-                          value={editFlowDirection}
-                          onValueChange={(val) => setEditFlowDirection(val as any)}
-                        >
-                          <SelectTrigger className="h-9 bg-background/50 rounded-lg text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="EXPENSE">Outflow (Expense)</SelectItem>
-                            <SelectItem value="INCOME">Inflow (Income)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="flex gap-2 justify-end pt-1">
-                          <Button size="sm" variant="ghost" className="h-8 text-xs text-emerald-500 hover:bg-emerald-500/10" onClick={() => handleUpdateFlowType(ft.id)}>
-                            Save
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={() => setEditingFlowId(null)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span
-                              className="text-xs font-bold px-2 py-0.5 rounded border"
-                              style={{
-                                backgroundColor: `${ft.color || '#6366f1'}15`,
-                                color: ft.color || '#6366f1',
-                                borderColor: `${ft.color || '#6366f1'}30`
-                              }}
-                            >
-                              {ft.name}
-                            </span>
-                            <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                              {ft.direction === 'INCOME' ? 'Inflow' : 'Outflow'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-border/5">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 rounded-md"
-                            onClick={() => {
-                              setEditingFlowId(ft.id);
-                              setEditFlowName(ft.name);
-                              setEditFlowDirection(ft.direction as any);
-                            }}
-                          >
-                            <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 rounded-md text-rose-500 hover:bg-rose-500/10"
-                            onClick={() => handleDeleteFlowType(ft.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        <Card className="glass border-border bg-card/60 backdrop-blur-xl hover:border-primary/30 transition-all duration-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-amber-500" />
+              Transaction Templates
+            </CardTitle>
+            <CardDescription>Manage reusable templates for quick ledger entry pre-fills</CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground min-h-[60px]">
+            Save transaction structures with preset amounts, accounts, and categories to easily populate forms and duplicate standard records in 1-click.
+          </CardContent>
+          <CardFooter>
+            <Link href="/settings/templates" className="w-full">
+              <Button className="w-full bg-accent text-accent-foreground font-semibold hover:bg-accent/80">
+                Configure Templates →
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* CSV Import */}
@@ -861,7 +699,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label className="label-uppercase text-muted-foreground">Target Account</Label>
-              <Select value={selectedAccountId} onValueChange={(val) => setSelectedAccountId(val || '')}>
+              <Select value={selectedAccountId} onValueChange={(val: any) => setSelectedAccountId(val || '')}>
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Select Account">
                     {accounts.find(a => a.id === selectedAccountId)?.name || 'Select Account'}
@@ -893,6 +731,53 @@ export default function SettingsPage() {
           </CardFooter>
         </Card>
 
+        {/* Webhook API */}
+        <Card className="glass border-border bg-card/60 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Webhook className="h-5 w-5 text-indigo-500" />
+              N8n / Webhook API Integration
+            </CardTitle>
+            <CardDescription>Configure external integrations like n8n for email parsing</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="label-uppercase text-muted-foreground">Webhook URL</Label>
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/n8n` : ''} 
+                  readOnly 
+                  className="bg-background/50 text-xs font-mono" 
+                />
+                <Button size="icon" variant="outline" onClick={copyWebhookUrl}><Copy className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            
+            <div className="space-y-1.5">
+              <Label className="label-uppercase text-muted-foreground">Secret Token (Bearer Auth)</Label>
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={webhookToken || 'No token generated yet'} 
+                  readOnly 
+                  className="bg-background/50 text-xs font-mono" 
+                />
+                <Button size="icon" variant="outline" disabled={!webhookToken} onClick={copyWebhookToken}><Copy className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Use this token in your n8n HTTP Request node. Set the Authentication type to "Header", with Name: <code>Authorization</code> and Value: <code>Bearer YOUR_TOKEN</code>.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleGenerateWebhookToken} disabled={generatingToken} variant="secondary" className="w-full font-semibold border-indigo-500/20 text-indigo-400 hover:text-indigo-300">
+              {generatingToken ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <KeyRound className="mr-1.5 h-4 w-4" />}
+              {webhookToken ? 'Regenerate Secret Token' : 'Generate Secret Token'}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
         {/* Danger Zone */}
         <Card className="glass border-destructive/20 bg-destructive/5 backdrop-blur-xl">
           <CardHeader>

@@ -287,7 +287,7 @@ export default function FixedDepositsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Auto Renewal</Label>
-                <Select value={autoRenewal ? 'YES' : 'NO'} onValueChange={(val: string | null) => setAutoRenewal(val === 'YES')} disabled={isPending}>
+                <Select value={autoRenewal ? 'YES' : 'NO'} onValueChange={(val: any) => setAutoRenewal(val === 'YES')} disabled={isPending}>
                   <SelectTrigger className="bg-background">
                     <SelectValue>
                       {autoRenewal ? 'Enable Auto-Renew' : 'Disable Auto-Renew'}

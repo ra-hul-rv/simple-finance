@@ -363,7 +363,7 @@ export default function InvestmentsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="label-uppercase text-muted-foreground">Type</Label>
-                <Select value={type} onValueChange={(val) => setType(val || 'MUTUAL_FUNDS')} disabled={isPending}>
+                <Select value={type} onValueChange={(val: any) => setType(val || 'MUTUAL_FUNDS')} disabled={isPending}>
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select type">
                       {type === 'MUTUAL_FUNDS' ? 'Mutual Funds' : type === 'STOCKS' ? 'Stocks' : type === 'CRYPTO' ? 'Crypto' : type === 'GOLD' ? 'Gold' : type === 'BONDS' ? 'Bonds' : type === 'OTHER' ? 'Other Assets' : type}

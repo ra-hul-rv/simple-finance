@@ -107,9 +107,7 @@ export function CategorySelector({
         <Label className="label-uppercase text-muted-foreground">Category</Label>
         <Select value={rootId} onValueChange={handleRootChange} disabled={disabled}>
           <SelectTrigger className="bg-background w-full">
-            <SelectValue placeholder="Select Category">
-              {rootId === 'NONE' ? 'No Category' : categories.find(c => c.id === rootId)?.name || 'Select Category'}
-            </SelectValue>
+            <SelectValue placeholder="Select Category" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="NONE">No Category</SelectItem>
@@ -126,9 +124,7 @@ export function CategorySelector({
           <Label className="label-uppercase text-muted-foreground">Subcategory</Label>
           <Select value={sub1Id} onValueChange={handleSub1Change} disabled={disabled}>
             <SelectTrigger className="bg-background w-full">
-              <SelectValue placeholder="Select Subcategory">
-                {sub1Id === 'NONE' ? 'None' : categories.find(c => c.id === sub1Id)?.name || 'Select Subcategory'}
-              </SelectValue>
+              <SelectValue placeholder="Select Subcategory" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="NONE">None</SelectItem>
@@ -146,9 +142,7 @@ export function CategorySelector({
           <Label className="label-uppercase text-muted-foreground">Detailed Category</Label>
           <Select value={sub2Id} onValueChange={handleSub2Change} disabled={disabled}>
             <SelectTrigger className="bg-background w-full">
-              <SelectValue placeholder="Select Detail">
-                {sub2Id === 'NONE' ? 'None' : categories.find(c => c.id === sub2Id)?.name || 'Select Detail'}
-              </SelectValue>
+              <SelectValue placeholder="Select Detail" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="NONE">None</SelectItem>

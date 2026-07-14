@@ -419,7 +419,7 @@ export default function WarrantiesPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Category Filter */}
-          <Select value={filterCategory} onValueChange={(val) => setFilterCategory(val || 'ALL')}>
+          <Select value={filterCategory} onValueChange={(val: any) => setFilterCategory(val || 'ALL')}>
             <SelectTrigger className="bg-background/20 border-border/40 h-10 rounded-xl text-xs w-[150px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -432,7 +432,7 @@ export default function WarrantiesPage() {
           </Select>
 
           {/* Status Filter */}
-          <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val || 'ALL')}>
+          <Select value={filterStatus} onValueChange={(val: any) => setFilterStatus(val || 'ALL')}>
             <SelectTrigger className="bg-background/20 border-border/40 h-10 rounded-xl text-xs w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -669,7 +669,7 @@ export default function WarrantiesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="label-uppercase text-muted-foreground">Product Category</Label>
-                  <Select value={category} onValueChange={(val) => setCategory(val || 'ELECTRONICS')}>
+                  <Select value={category} onValueChange={(val: any) => setCategory(val || 'ELECTRONICS')}>
                     <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
                       <SelectValue placeholder="Category">
                         {categoriesList.find(c => c.value === category)?.label || 'Electronics / Gadgets'}
