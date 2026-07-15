@@ -438,9 +438,147 @@ async function seedUser(email: string, name: string, passwordHash: string) {
       userId: user.id,
     },
   });
+
+  // Seed Lending Records
+  // LENT: Money I gave to someone
+  const lentToRavi = await prisma.lending.create({
+    data: {
+      type: 'LENT',
+      personName: 'Ravi Kumar',
+      totalAmount: 25000,
+      outstandingBalance: 15000,
+      dueDate: new Date(now.getFullYear(), now.getMonth() + 2, 15),
+      interestRate: 0,
+      color: '#f97316',
+      notes: 'Emergency medical expenses - will repay in 2 months',
+      status: 'ACTIVE',
+      userId: user.id,
+      accountId: hdfc.id,
+    },
+  });
+
+  // Create initial lending transaction
+  await prisma.transaction.create({
+    data: {
+      amount: 25000,
+      type: 'EXPENSE',
+      description: 'Lent money to Ravi Kumar',
+      date: new Date(now.getFullYear(), now.getMonth() - 1, 10),
+      accountId: hdfc.id,
+      userId: user.id,
+      lendingId: lentToRavi.id,
+      status: 'COMPLETED',
+    },
+  });
+
+  // Repayment received
+  await prisma.transaction.create({
+    data: {
+      amount: 10000,
+      type: 'INCOME',
+      description: 'Repayment from Ravi Kumar',
+      notes: 'Partial repayment - bank transfer',
+      date: new Date(now.getFullYear(), now.getMonth(), 5),
+      accountId: hdfc.id,
+      userId: user.id,
+      lendingId: lentToRavi.id,
+      status: 'COMPLETED',
+    },
+  });
+
+  const lentToPreethi = await prisma.lending.create({
+    data: {
+      type: 'LENT',
+      personName: 'Preethi S',
+      totalAmount: 5000,
+      outstandingBalance: 0,
+      color: '#10b981',
+      notes: 'Birthday gift advance - settled',
+      status: 'SETTLED',
+      userId: user.id,
+      accountId: cash.id,
+    },
+  });
+
+  await prisma.transaction.create({
+    data: {
+      amount: 5000,
+      type: 'EXPENSE',
+      description: 'Lent money to Preethi S',
+      date: new Date(now.getFullYear(), now.getMonth() - 2, 20),
+      accountId: cash.id,
+      userId: user.id,
+      lendingId: lentToPreethi.id,
+      status: 'COMPLETED',
+    },
+  });
+
+  await prisma.transaction.create({
+    data: {
+      amount: 5000,
+      type: 'INCOME',
+      description: 'Repayment from Preethi S',
+      notes: 'Full settlement via GPay',
+      date: new Date(now.getFullYear(), now.getMonth() - 1, 25),
+      accountId: cash.id,
+      userId: user.id,
+      lendingId: lentToPreethi.id,
+      status: 'COMPLETED',
+    },
+  });
+
+  // BORROWED: Money someone gave to me
+  const borrowedFromAnkita = await prisma.lending.create({
+    data: {
+      type: 'BORROWED',
+      personName: 'Ankita Reddy',
+      totalAmount: 15000,
+      outstandingBalance: 8000,
+      dueDate: new Date(now.getFullYear(), now.getMonth() + 1, 30),
+      interestRate: 0,
+      color: '#a855f7',
+      notes: 'Borrowed for laptop repair - paying back monthly',
+      status: 'ACTIVE',
+      userId: user.id,
+      accountId: hdfc.id,
+    },
+  });
+
+  await prisma.transaction.create({
+    data: {
+      amount: 15000,
+      type: 'INCOME',
+      description: 'Borrowed money from Ankita Reddy',
+      date: new Date(now.getFullYear(), now.getMonth() - 1, 5),
+      accountId: hdfc.id,
+      userId: user.id,
+      lendingId: borrowedFromAnkita.id,
+      status: 'COMPLETED',
+    },
+  });
+
+  await prisma.transaction.create({
+    data: {
+      amount: 7000,
+      type: 'EXPENSE',
+      description: 'Repaying Ankita Reddy',
+      notes: 'First installment repayment',
+      date: new Date(now.getFullYear(), now.getMonth(), 2),
+      accountId: hdfc.id,
+      userId: user.id,
+      lendingId: borrowedFromAnkita.id,
+      status: 'COMPLETED',
+    },
+  });
 }
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️ WARNING: Running seed in production is disabled because it wipes the entire database.');
+    console.warn('If you actually want to do this, temporarily change your NODE_ENV to development.');
+    process.exit(1);
+  }
+
   console.log('Clearing database...');
   await prisma.auditLog.deleteMany({});
   await prisma.notification.deleteMany({});
@@ -451,6 +589,7 @@ async function main() {
   await prisma.subscription.deleteMany({});
   await prisma.transactionTag.deleteMany({});
   await prisma.tag.deleteMany({});
+  await prisma.lending.deleteMany({});
   await prisma.transaction.deleteMany({});
   await prisma.category.deleteMany({});
   await prisma.account.deleteMany({});

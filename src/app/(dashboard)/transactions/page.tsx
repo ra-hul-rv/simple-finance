@@ -909,6 +909,7 @@ export default function TransactionsPage() {
                         : 'text-foreground'
                     )}>
                       {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
+                      {['EXPENSE', 'INVESTMENT'].includes(tx.type) ? '-' : ''}
                       {formatCurrency(tx.amount, 'INR')}
                     </TableCell>
                     <TableCell className="pr-6">

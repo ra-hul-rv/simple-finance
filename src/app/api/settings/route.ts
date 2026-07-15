@@ -28,6 +28,12 @@ export async function GET() {
 
     // Create defaults if not found
     if (!settings) {
+      // First verify the user still exists in the DB (prevents foreign key errors on stale sessions)
+      const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+      if (!user) {
+        return NextResponse.json({ error: 'User not found. Please log out and log in again.' }, { status: 401 });
+      }
+
       settings = await prisma.userSettings.create({
         data: {
           userId: session.user.id,

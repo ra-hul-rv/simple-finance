@@ -120,8 +120,7 @@ model User {
   auditLogs             AuditLog[]
   settings              UserSettings?
   tags                  Tag[]
-  debts                 Debt[]
-  loans                 Loan[]
+  lendings              Lending[]
   shoppingLists         ShoppingList[]
   warranties            Warranty[]
   coupons               Coupon[]
@@ -181,8 +180,7 @@ model Account {
   recurringTransactions RecurringTransaction[]
   subscriptions         Subscription[]
   creditCard            CreditCard?
-  debts                 Debt[]
-  loans                 Loan[]
+  lendings              Lending[]
   emis                  Emi[]
 
   @@index([userId])
@@ -219,8 +217,8 @@ model Transaction {
 
   personId               String?
   person                 Person?               @relation(fields: [personId], references: [id], onDelete: SetNull)
-  loanId                 String?
-  loan                   Loan?                 @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  lendingId              String?
+  lending                Lending?              @relation(fields: [lendingId], references: [id], onDelete: SetNull)
   emiPayment             EmiPayment?
 
   @@index([userId])
@@ -461,39 +459,24 @@ model AuditLog {
   @@index([createdAt])
 }
 
-model Debt {
-  id                 String    @id @default(uuid())
-  lenderName         String
-  totalBorrowed      Decimal   @db.Decimal(15, 2)
-  outstandingBalance Decimal   @db.Decimal(15, 2)
-  dueDate            DateTime?
-  interestRate       Decimal?  @db.Decimal(5, 2)
-  color              String    @default("#a855f7")
-  notes              String?
-  status             String    @default("ACTIVE")
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId String?
-  account   Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
+enum LendingType {
+  LENT
+  BORROWED
 }
 
-model Loan {
-  id                 String    @id @default(uuid())
-  borrowerName       String
-  totalLent          Decimal   @db.Decimal(15, 2)
-  outstandingBalance Decimal   @db.Decimal(15, 2)
+model Lending {
+  id                 String      @id @default(uuid())
+  type               LendingType
+  personName         String
+  totalAmount        Decimal     @db.Decimal(15, 2)
+  outstandingBalance Decimal     @db.Decimal(15, 2)
   dueDate            DateTime?
-  interestRate       Decimal?  @db.Decimal(5, 2)
-  color              String    @default("#f97316")
+  interestRate       Decimal?    @db.Decimal(5, 2)
+  color              String      @default("#f97316")
   notes              String?
-  status             String    @default("ACTIVE")
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  status             String      @default("ACTIVE")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -679,7 +662,7 @@ model Person {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   transactions Transaction[]
-  loans        Loan[]
+  lendings     Lending[]
   emis         Emi[]
 
   @@index([userId])

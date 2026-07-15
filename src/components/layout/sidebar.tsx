@@ -20,8 +20,6 @@ import {
   DollarSign,
   ChevronLeft,
   Sparkles,
-  ArrowDownRight,
-  ArrowUpRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -53,11 +51,9 @@ const mainNav = [
 const financeNav = [
   { title: 'Budgets', href: '/budgets', icon: PiggyBank },
   { title: 'Bills & Subs', href: '/recurring', icon: Repeat },
-  { title: 'Subscriptions', href: '/subscriptions', icon: Receipt },
   { title: 'Fixed Deposits', href: '/fixed-deposits', icon: Landmark },
   { title: 'Investments', href: '/investments', icon: TrendingUp },
-  { title: 'Debts (+)', href: '/debts', icon: ArrowDownRight },
-  { title: 'Loans (-)', href: '/loans', icon: ArrowUpRight },
+  { title: 'Lending & Debts', href: '/lending', icon: ArrowLeftRight },
   { title: 'EMIs', href: '/emis', icon: CreditCard },
   { title: 'Shopping List', href: '/shopping', icon: ShoppingBag },
   { title: 'Warranties', href: '/warranties', icon: ShieldCheck },
@@ -151,7 +147,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               categories: '/categories',
               budgets: '/budgets',
               recurring: '/recurring',
-              subscriptions: '/subscriptions',
               'fixed-deposits': '/fixed-deposits',
               investments: '/investments',
               debts: '/debts',

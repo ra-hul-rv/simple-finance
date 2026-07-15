@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
+import { auth, signOut } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
     });
 
     if (!user) {
-      redirect('/login');
+      redirect('/api/auth/signout?callbackUrl=/login');
     }
 
     const currency = user.settings?.currency || 'INR';

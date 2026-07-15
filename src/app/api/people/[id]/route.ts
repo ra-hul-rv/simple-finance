@@ -32,7 +32,7 @@ export async function GET(
           orderBy: { date: 'desc' },
           take: 10,
         },
-        loans: true,
+        lendings: true,
         emis: true,
       }
     });

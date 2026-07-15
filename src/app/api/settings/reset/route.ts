@@ -13,8 +13,7 @@ export async function POST() {
     await prisma.$transaction([
       prisma.auditLog.deleteMany({ where: { userId: session.user.id } }),
       prisma.notification.deleteMany({ where: { userId: session.user.id } }),
-      prisma.debt.deleteMany({ where: { userId: session.user.id } }),
-      prisma.loan.deleteMany({ where: { userId: session.user.id } }),
+      prisma.lending.deleteMany({ where: { userId: session.user.id } }),
       prisma.fixedDeposit.deleteMany({ where: { userId: session.user.id } }),
       prisma.creditCard.deleteMany({ where: { userId: session.user.id } }),
       prisma.investment.deleteMany({ where: { userId: session.user.id } }),
