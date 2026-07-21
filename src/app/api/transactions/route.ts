@@ -65,6 +65,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type');
     const accountId = searchParams.get('accountId');
     const categoryId = searchParams.get('categoryId');
+    const tagId = searchParams.get('tagId');
     const search = searchParams.get('search');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -99,6 +100,12 @@ export async function GET(request: Request) {
       if (endDate) whereClause.date.lte = new Date(endDate);
     }
 
+    if (tagId) {
+      whereClause.tags = {
+        some: { tagId },
+      };
+    }
+
     const [transactions, totalCount] = await prisma.$transaction([
       prisma.transaction.findMany({
         where: whereClause,
@@ -115,6 +122,11 @@ export async function GET(request: Request) {
           },
           transferToAccount: true,
           attachments: true,
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
         },
         orderBy: { [sortBy]: sortOrder },
         skip,
@@ -129,6 +141,7 @@ export async function GET(request: Request) {
       account: { ...tx.account, balance: Number(tx.account.balance) },
       category: tx.category ? { ...tx.category, budgetAmount: tx.category.budgetAmount ? Number(tx.category.budgetAmount) : null } : null,
       transferToAccount: tx.transferToAccount ? { ...tx.transferToAccount, balance: Number(tx.transferToAccount.balance) } : null,
+      tags: tx.tags?.map((tt: any) => tt.tag) || [],
     }));
 
     return NextResponse.json({
@@ -329,6 +342,17 @@ export async function POST(request: Request) {
       await syncCreditCardBalances(validated.accountId, tx);
       if (validated.transferToAccountId) {
         await syncCreditCardBalances(validated.transferToAccountId, tx);
+      }
+
+      // 5. Create tag associations
+      if (validated.tags && validated.tags.length > 0) {
+        await tx.transactionTag.createMany({
+          data: validated.tags.map((tagId: string) => ({
+            transactionId: createdTx.id,
+            tagId,
+          })),
+          skipDuplicates: true,
+        });
       }
 
       return createdTx;

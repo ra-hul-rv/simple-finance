@@ -1,4 +1,4 @@
-'use client';
+// Coupons Tab Component
 
 import { useEffect, useState, useTransition } from 'react';
 import { 
@@ -60,7 +60,7 @@ interface Coupon {
   barcodePath: string | null;
 }
 
-export default function CouponsPage() {
+export function CouponsTab() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

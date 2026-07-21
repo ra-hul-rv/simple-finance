@@ -1,22 +1,13 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { PageHeader } from '@/components/shared/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Plus, Edit2, Trash2, Zap } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Edit2, Trash2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
-import Link from 'next/link';
 
 interface FlowTypeItem {
   id: string;
@@ -27,8 +18,7 @@ interface FlowTypeItem {
   isActive: boolean;
 }
 
-export default function FlowTypesSettingsPage() {
-  const [isPending, startTransition] = useTransition();
+export function FlowTypesTab() {
   const [flowTypes, setFlowTypes] = useState<FlowTypeItem[]>([]);
   const [newFlowName, setNewFlowName] = useState('');
   const [newFlowDirection, setNewFlowDirection] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
@@ -121,15 +111,6 @@ export default function FlowTypesSettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <Link href="/settings">
-          <Button variant="ghost" size="icon" className="h-9 w-9 border border-border/40 bg-card/40 rounded-xl hover:bg-accent">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <PageHeader title="Custom Flow Types" description="Configure personalized financial flows for double-entry categorizations" />
-      </div>
-
       <Card className="glass border-border bg-card/60 backdrop-blur-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -139,7 +120,6 @@ export default function FlowTypesSettingsPage() {
           <CardDescription>Custom flows allow you to track specialized cash categories separate from system enums.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Add new flow type */}
           <div className="p-4 rounded-xl border border-border/20 bg-background/20 space-y-4">
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Add New Custom Flow Type</h4>
             <div className="grid gap-4 md:grid-cols-3 items-end">
@@ -191,7 +171,6 @@ export default function FlowTypesSettingsPage() {
             </div>
           </div>
 
-          {/* Flow Types list */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Existing Custom Flow Types</h4>
             {flowTypes.length === 0 ? (

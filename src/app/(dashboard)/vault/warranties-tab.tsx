@@ -1,4 +1,4 @@
-'use client';
+// Warranties Tab Component
 
 import { useEffect, useState, useTransition } from 'react';
 import { 
@@ -60,7 +60,7 @@ interface Warranty {
   isExpired: boolean;
 }
 
-export default function WarrantiesPage() {
+export function WarrantiesTab() {
   const [warranties, setWarranties] = useState<Warranty[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   

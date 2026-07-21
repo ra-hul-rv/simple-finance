@@ -33,6 +33,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
 import { MultipleFileUpload } from '@/components/shared/multiple-file-upload';
 import { useFormDraft } from '@/hooks/use-form-draft';
 import { ImageLightbox } from '@/components/shared/image-lightbox';
@@ -59,6 +62,8 @@ import {
   X,
   Sparkles,
   Copy,
+  Check,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -90,6 +95,13 @@ interface Transaction {
   attachments?: Attachment[];
   personId?: string | null;
   loanId?: string | null;
+  tags?: Tag[];
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface Account {
@@ -123,11 +135,16 @@ export default function TransactionsPage() {
 
   // Pagination & Filtering
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [accountFilter, setAccountFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagFilter, setTagFilter] = useState('ALL');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   
   // Sorting
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
@@ -184,11 +201,12 @@ export default function TransactionsPage() {
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      let url = `/api/transactions?page=${page}&limit=15`;
+      let url = `/api/transactions?page=${page}&limit=${limit}`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (typeFilter !== 'ALL') url += `&type=${typeFilter}`;
       if (accountFilter !== 'ALL') url += `&accountId=${accountFilter}`;
       if (categoryFilter !== 'ALL') url += `&categoryId=${categoryFilter}`;
+      if (tagFilter !== 'ALL') url += `&tagId=${tagFilter}`;
       if (startDate) url += `&startDate=${startDate}`;
       if (endDate) url += `&endDate=${endDate}`;
       url += `&sortBy=${sortBy}&sortOrder=${sortOrder}`;
@@ -219,18 +237,20 @@ export default function TransactionsPage() {
 
   const fetchFilters = async () => {
     try {
-      const [accRes, catRes, ftRes, tplRes, pplRes] = await Promise.all([
+      const [accRes, catRes, ftRes, tplRes, pplRes, tagRes] = await Promise.all([
         fetch('/api/accounts'),
         fetch('/api/categories'),
         fetch('/api/flow-types'),
         fetch('/api/templates'),
         fetch('/api/people'),
+        fetch('/api/tags'),
       ]);
       if (accRes.ok) setAccounts(await accRes.json());
       if (catRes.ok) setCategories(await catRes.json());
       if (ftRes.ok) setFlowTypes(await ftRes.json());
       if (tplRes.ok) setTemplates(await tplRes.json());
       if (pplRes.ok) setPeople(await pplRes.json());
+      if (tagRes.ok) setTags(await tagRes.json());
     } catch (err) {
       console.error('Failed to fetch filters:', err);
     }
@@ -267,7 +287,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [page, search, typeFilter, accountFilter, categoryFilter, startDate, endDate, minAmount, maxAmount, sortBy, sortOrder]);
+  }, [page, limit, search, typeFilter, accountFilter, categoryFilter, tagFilter, startDate, endDate, minAmount, maxAmount, sortBy, sortOrder]);
 
   const toggleSort = (column: 'date' | 'amount' | 'description') => {
     if (sortBy === column) {
@@ -334,6 +354,7 @@ export default function TransactionsPage() {
     setCategoryId('');
     setTransferToAccountId('');
     setPersonId('');
+    setSelectedTagIds([]);
     setIsLending(false);
     setSelectedFiles([]);
     setExistingAttachments([]);
@@ -381,6 +402,7 @@ export default function TransactionsPage() {
     setTransferToAccountId(tx.transferToAccountId || '');
     setPersonId(tx.personId || '');
     setIsLending(!!tx.loanId);
+    setSelectedTagIds(tx.tags?.map(t => t.id) || []);
 
     setSelectedFiles([]);
     setExistingAttachments(tx.attachments || []);
@@ -408,6 +430,7 @@ export default function TransactionsPage() {
       setTransferToAccountId(tx.transferToAccountId || '');
       setPersonId(tx.personId || '');
       setIsLending(false); // don't copy the loan itself
+      setSelectedTagIds(tx.tags?.map(t => t.id) || []);
 
       setSelectedFiles([]);
       setExistingAttachments(tx.attachments || []);
@@ -485,6 +508,7 @@ export default function TransactionsPage() {
           transferToAccountId: (txType === 'TRANSFER' || txType === 'CREDIT_CARD_PAYMENT') ? transferToAccountId : null,
           personId: personId || null,
           isLending,
+          tags: selectedTagIds,
         };
 
         const url = editingTransaction ? `/api/transactions/${editingTransaction.id}` : '/api/transactions';
@@ -707,6 +731,26 @@ export default function TransactionsPage() {
                 </SelectContent>
               </Select>
 
+              {/* Tag */}
+              <Select value={tagFilter} onValueChange={(val: any) => { setTagFilter(val || 'ALL'); setPage(1); }}>
+                <SelectTrigger className="h-11 min-w-[130px] bg-background/30 border-border/40 rounded-xl text-sm">
+                  <SelectValue>
+                    {tagFilter === 'ALL' ? 'All Tags' : tags.find(t => t.id === tagFilter)?.name || 'All Tags'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Tags</SelectItem>
+                  {tags.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                        {tag.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 variant="ghost"
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -768,6 +812,7 @@ export default function TransactionsPage() {
                     setTypeFilter('ALL');
                     setAccountFilter('ALL');
                     setCategoryFilter('ALL');
+                    setTagFilter('ALL');
                     setStartDate('');
                     setEndDate('');
                     setMinAmount('');
@@ -830,6 +875,19 @@ export default function TransactionsPage() {
                       <div className="font-semibold text-sm text-foreground">{tx.description}</div>
                       {tx.merchant && (
                         <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">{tx.merchant}</div>
+                      )}
+                      {tx.tags && tx.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {tx.tags.map((tag: any) => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-border/30 bg-background/50"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-xs font-semibold">
@@ -959,31 +1017,71 @@ export default function TransactionsPage() {
           </div>
 
           {/* Pagination buttons */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-border/30 px-6 py-4">
-              <span className="text-xs text-muted-foreground font-semibold">
-                Page {page} of {totalPages}
-              </span>
+          {totalPages > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/30 px-6 py-4 gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground font-medium">Rows per page:</span>
+                <Select value={limit.toString()} onValueChange={(v: string) => { setLimit(Number(v)); setPage(1); }}>
+                  <SelectTrigger className="h-8 w-20 text-xs bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15">15</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-9 rounded-xl"
+                  className="h-8 w-8 p-0 rounded-lg"
                   disabled={page === 1}
                   onClick={() => setPage(page - 1)}
                 >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Prev
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
+                
+                <div className="flex items-center gap-1 mx-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                    // Show first, last, current, and adjacent pages
+                    if (
+                      p === 1 || 
+                      p === totalPages || 
+                      (p >= page - 1 && p <= page + 1)
+                    ) {
+                      return (
+                        <Button
+                          key={p}
+                          size="sm"
+                          variant={page === p ? "default" : "outline"}
+                          className={`h-8 w-8 p-0 rounded-lg text-xs font-semibold ${page !== p && "hover:bg-accent/50 text-muted-foreground hover:text-foreground"}`}
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </Button>
+                      );
+                    } else if (
+                      p === page - 2 || 
+                      p === page + 2
+                    ) {
+                      return <span key={p} className="px-1 text-xs text-muted-foreground">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-9 rounded-xl"
+                  className="h-8 w-8 p-0 rounded-lg"
                   disabled={page === totalPages}
                   onClick={() => setPage(page + 1)}
                 >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -1119,6 +1217,85 @@ export default function TransactionsPage() {
                 </div>
               )}
             </div>
+
+            {txType !== 'TRANSFER' && txType !== 'CREDIT_CARD_PAYMENT' && (
+              <div className="space-y-1.5">
+                <Label className="label-uppercase text-muted-foreground">Tags</Label>
+                <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
+                  <PopoverTrigger
+                    className={cn(
+                      "inline-flex items-center justify-between whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      "w-full h-auto min-h-11 bg-background/20 border border-border/40 hover:bg-background/40 hover:text-foreground font-normal px-4 py-2"
+                    )}
+                  >
+                      {selectedTagIds.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 py-1">
+                          {selectedTagIds.map((tagId) => {
+                            const tag = tags.find((t) => t.id === tagId);
+                            if (!tag) return null;
+                            return (
+                              <Badge
+                                key={tag.id}
+                                variant="outline"
+                                className="inline-flex items-center gap-1 pl-1.5 pr-2 py-0.5 rounded-full text-xs font-medium border-border/50 bg-background/50 hover:bg-background/80"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setSelectedTagIds((prev) => prev.filter((id) => id !== tag.id));
+                                }}
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                                {tag.name}
+                                <X className="h-3 w-3 ml-1 text-muted-foreground hover:text-foreground cursor-pointer" />
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Select tags...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0 sm:max-w-[450px]" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search tags..." className="h-9" />
+                      <CommandList>
+                        <CommandEmpty>No tag found.</CommandEmpty>
+                        <CommandGroup>
+                          {tags.map((tag) => {
+                            const isSelected = selectedTagIds.includes(tag.id);
+                            return (
+                              <CommandItem
+                                key={tag.id}
+                                value={tag.name}
+                                onSelect={() => {
+                                  setSelectedTagIds((prev) =>
+                                    isSelected
+                                      ? prev.filter((id) => id !== tag.id)
+                                      : [...prev, tag.id]
+                                  );
+                                }}
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                                  <span className="flex-1">{tag.name}</span>
+                                  <Check
+                                    className={cn(
+                                      "h-4 w-4 text-primary",
+                                      isSelected ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label className="label-uppercase text-muted-foreground">Title (Description)</Label>

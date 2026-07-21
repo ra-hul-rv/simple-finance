@@ -26,6 +26,10 @@ import {
   ShieldCheck,
   Ticket,
   Cpu,
+  FolderKanban,
+  Mail,
+  Users,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -44,33 +48,53 @@ const bottomNavItems = [
   { title: 'Analytics', href: '/analytics', icon: BarChart3 },
 ];
 
-const allNavItems = [
-  { section: 'Overview', items: [
-    { title: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { title: 'Accounts', href: '/accounts', icon: Wallet },
-    { title: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
-    { title: 'Income', href: '/income', icon: DollarSign },
-    { title: 'Categories', href: '/categories', icon: Tag },
-  ]},
-  { section: 'Finance', items: [
-    { title: 'Budgets', href: '/budgets', icon: PiggyBank },
-    { title: 'Recurring', href: '/recurring', icon: Repeat },
-    { title: 'Fixed Deposits', href: '/fixed-deposits', icon: Landmark },
-    { title: 'Investments', href: '/investments', icon: TrendingUp },
-    { title: 'Lending & Debts', href: '/lending', icon: ArrowLeftRight },
-    { title: 'Shopping List', href: '/shopping', icon: ShoppingBag },
-    { title: 'Warranties', href: '/warranties', icon: ShieldCheck },
-    { title: 'Coupons Wallet', href: '/coupons', icon: Ticket },
-    { title: 'Automations', href: '/automations', icon: Cpu },
-  ]},
-  { section: 'Insights', items: [
-    { title: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { title: 'Reports', href: '/reports', icon: FileText },
-  ]},
-  { section: 'System', items: [
-    { title: 'Settings', href: '/settings', icon: Settings },
-  ]},
-];
+import { DEFAULT_SIDEBAR_LAYOUT, SidebarLayout } from '../settings/sidebar-editor';
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  dashboard: LayoutDashboard,
+  inbox: Mail,
+  accounts: Wallet,
+  transactions: ArrowLeftRight,
+  income: DollarSign,
+  categories: Tag,
+  people: Users,
+  budgets: PiggyBank,
+  recurring: Repeat,
+  groups: FolderKanban,
+  'fixed-deposits': Landmark,
+  investments: TrendingUp,
+  lending: ArrowLeftRight,
+  shopping: ShoppingBag,
+  warranties: ShieldCheck,
+  coupons: Ticket,
+  automations: Cpu,
+  calendar: CalendarIcon,
+  analytics: BarChart3,
+  reports: FileText,
+};
+
+const DEFAULT_TITLE_MAP: Record<string, string> = {
+  dashboard: 'Dashboard',
+  inbox: 'AI Inbox',
+  accounts: 'Accounts',
+  transactions: 'Transactions',
+  income: 'Income',
+  categories: 'Categories',
+  people: 'People',
+  budgets: 'Budgets',
+  recurring: 'Bills & Subs',
+  groups: 'Groups',
+  'fixed-deposits': 'Fixed Deposits',
+  investments: 'Investments',
+  lending: 'Lending & Debts',
+  shopping: 'Shopping List',
+  warranties: 'Warranties',
+  coupons: 'Coupons Wallet',
+  automations: 'Automations',
+  calendar: 'Calendar',
+  analytics: 'Analytics',
+  reports: 'Reports',
+};
 
 export function MobileNav() {
   const pathname = usePathname();
@@ -80,48 +104,22 @@ export function MobileNav() {
     ? session.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'CU';
 
-  const [orderedSections, setOrderedSections] = useState(allNavItems);
-  const [sectionLabels, setSectionLabels] = useState({
-    overview: 'Overview',
-    finance: 'Finance',
-    insights: 'Insights',
-    system: 'System',
-  });
+  const [layout, setLayout] = useState<SidebarLayout>(DEFAULT_SIDEBAR_LAYOUT);
 
   useEffect(() => {
     const handleStorageChange = () => {
-      const saved = localStorage.getItem('sf_sidebar_order');
+      const saved = localStorage.getItem('sf_sidebar_layout');
       if (saved) {
         try {
-          const order = JSON.parse(saved) as string[];
-          const reordered = allNavItems.map(sec => {
-            if (sec.section === 'System') return sec;
-            const items = [...sec.items].sort((a, b) => {
-              const indexA = order.indexOf(a.href);
-              const indexB = order.indexOf(b.href);
-              if (indexA === -1 && indexB === -1) return 0;
-              if (indexA === -1) return 1;
-              if (indexB === -1) return -1;
-              return indexA - indexB;
-            });
-            return { ...sec, items };
-          });
-          setOrderedSections(reordered);
+          const parsed = JSON.parse(saved) as SidebarLayout;
+          if (parsed && parsed.sections) {
+            setLayout(parsed);
+          }
         } catch (e) {
           console.error(e);
         }
       } else {
-        setOrderedSections(allNavItems);
-      }
-
-      const savedLabels = localStorage.getItem('sf_sidebar_section_labels');
-      if (savedLabels) {
-        try {
-          const parsed = JSON.parse(savedLabels);
-          setSectionLabels(prev => ({ ...prev, ...parsed }));
-        } catch (e) {
-          console.error(e);
-        }
+        setLayout(DEFAULT_SIDEBAR_LAYOUT);
       }
     };
 
@@ -132,31 +130,10 @@ export function MobileNav() {
         const res = await fetch('/api/settings');
         if (res.ok) {
           const data = await res.json();
-          if (data.sidebarOrder) {
-            const orderIds = data.sidebarOrder.split(',');
-            const idToHref: Record<string, string> = {
-              dashboard: '/',
-              accounts: '/accounts',
-              transactions: '/transactions',
-              income: '/income',
-              categories: '/categories',
-              budgets: '/budgets',
-              recurring: '/recurring',
-              'fixed-deposits': '/fixed-deposits',
-              investments: '/investments',
-              lending: '/lending',
-              shopping: '/shopping',
-              warranties: '/warranties',
-              coupons: '/coupons',
-              automations: '/automations',
-              analytics: '/analytics',
-              reports: '/reports'
-            };
-            const hrefOrder = orderIds.map((id: string) => idToHref[id]).filter(Boolean);
-            localStorage.setItem('sf_sidebar_order', JSON.stringify(hrefOrder));
-          }
-          if (data.sidebarSectionLabels) {
-            localStorage.setItem('sf_sidebar_section_labels', data.sidebarSectionLabels);
+          if (data.sidebarLayout) {
+            localStorage.setItem('sf_sidebar_layout', data.sidebarLayout);
+          } else if (data.sidebarOrder || data.sidebarSectionLabels) {
+            localStorage.setItem('sf_sidebar_layout', JSON.stringify(DEFAULT_SIDEBAR_LAYOUT));
           }
           handleStorageChange();
         }
@@ -197,41 +174,64 @@ export function MobileNav() {
             </div>
             <ScrollArea className="h-[calc(100vh-3.5rem)]">
               <div className="space-y-6 p-4">
-                {orderedSections.map((section) => (
-                  <div key={section.section}>
-                    <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      {section.section === 'Overview' ? sectionLabels.overview :
-                       section.section === 'Finance' ? sectionLabels.finance :
-                       section.section === 'Insights' ? sectionLabels.insights :
-                       section.section === 'System' ? sectionLabels.system :
-                       section.section}
-                    </p>
-                    <div className="space-y-0.5">
-                      {section.items.map((item) => {
-                        const isActive = pathname === item.href ||
-                          (item.href !== '/' && pathname.startsWith(item.href));
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors',
-                              isActive
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                            )}
-                          >
-                            <Icon className="h-[1.125rem] w-[1.125rem]" />
-                            {item.title}
-                          </Link>
-                        );
-                      })}
+                {layout.sections.map((section) => {
+                  if (section.isCollapsed || section.items.filter(i => !i.isHidden).length === 0) return null;
+                  
+                  return (
+                    <div key={section.id}>
+                      <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                        {section.title || section.id}
+                      </p>
+                      <div className="space-y-0.5">
+                        {section.items.filter(i => !i.isHidden).map((item) => {
+                          const href = item.id === 'dashboard' ? '/' : `/${item.id}`;
+                          const Icon = ICON_MAP[item.id] || LayoutDashboard;
+                          const title = item.title || DEFAULT_TITLE_MAP[item.id] || item.id;
+                          const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+                          
+                          return (
+                            <Link
+                              key={item.id}
+                              href={href}
+                              onClick={() => setOpen(false)}
+                              className={cn(
+                                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors',
+                                isActive
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                              )}
+                            >
+                              <Icon className="h-[1.125rem] w-[1.125rem]" />
+                              {title}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      <Separator className="mt-4" />
                     </div>
-                    <Separator className="mt-4" />
+                  );
+                })}
+                <div>
+                  <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    System
+                  </p>
+                  <div className="space-y-0.5">
+                    <Link
+                      href="/settings"
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors',
+                        pathname.startsWith('/settings')
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      )}
+                    >
+                      <Settings className="h-[1.125rem] w-[1.125rem]" />
+                      Settings
+                    </Link>
                   </div>
-                ))}
+                  <Separator className="mt-4" />
+                </div>
               </div>
             </ScrollArea>
             {/* Mobile Sheet Profile section */}

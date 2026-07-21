@@ -1,37 +1,17 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { PageHeader } from '@/components/shared/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Plus, Edit2, Trash2, FileSpreadsheet, Tag, CreditCard, Receipt } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Edit2, Trash2, FileSpreadsheet, Tag, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
-import Link from 'next/link';
 
-interface Account {
-  id: string;
-  name: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface FlowType {
-  id: string;
-  name: string;
-}
+interface Account { id: string; name: string; }
+interface Category { id: string; name: string; }
+interface FlowType { id: string; name: string; }
 
 interface TemplateItem {
   id: string;
@@ -47,14 +27,13 @@ interface TemplateItem {
   categoryId: string | null;
 }
 
-export default function TemplatesSettingsPage() {
+export function TemplatesTab() {
   const [isPending, startTransition] = useTransition();
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [flowTypes, setFlowTypes] = useState<FlowType[]>([]);
 
-  // Add Template state
   const [newName, setNewName] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newType, setNewType] = useState('EXPENSE');
@@ -66,7 +45,6 @@ export default function TemplatesSettingsPage() {
   const [newAccountId, setNewAccountId] = useState('');
   const [newCategoryId, setNewCategoryId] = useState('none');
 
-  // Editing Template state
   const [editingTplId, setEditingTplId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editAmount, setEditAmount] = useState('');
@@ -106,98 +84,82 @@ export default function TemplatesSettingsPage() {
   }, []);
 
   const handleAddTemplate = async () => {
-    if (!newName.trim()) {
-      toast.error('Template name is required');
-      return;
-    }
-    if (!newAccountId) {
-      toast.error('Default account is required');
-      return;
-    }
+    if (!newName.trim()) { toast.error('Template name is required'); return; }
+    if (!newAccountId) { toast.error('Default account is required'); return; }
 
-    try {
-      const res = await fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName.trim(),
-          amount: newAmount ? parseFloat(newAmount) : null,
-          type: newType,
-          flowType: (!newFlowType || newFlowType === 'none') ? null : newFlowType,
-          description: newDescription.trim() || null,
-          merchant: newMerchant.trim() || null,
-          location: newLocation.trim() || null,
-          notes: newNotes.trim() || null,
-          accountId: newAccountId,
-          categoryId: (!newCategoryId || newCategoryId === 'none') ? null : newCategoryId,
-        }),
-      });
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newName.trim(),
+            amount: newAmount ? parseFloat(newAmount) : null,
+            type: newType,
+            flowType: (!newFlowType || newFlowType === 'none') ? null : newFlowType,
+            description: newDescription.trim() || null,
+            merchant: newMerchant.trim() || null,
+            location: newLocation.trim() || null,
+            notes: newNotes.trim() || null,
+            accountId: newAccountId,
+            categoryId: (!newCategoryId || newCategoryId === 'none') ? null : newCategoryId,
+          }),
+        });
 
-      if (!res.ok) throw new Error('Failed to create template');
-      const created = await res.json();
-      setTemplates([...templates, created]);
-      
-      // Clear inputs
-      setNewName('');
-      setNewAmount('');
-      setNewDescription('');
-      setNewMerchant('');
-      setNewLocation('');
-      setNewNotes('');
-      setNewFlowType('none');
-      setNewCategoryId('none');
-      toast.success('Template saved successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save template');
-    }
+        if (!res.ok) throw new Error('Failed to create template');
+        const created = await res.json();
+        setTemplates([...templates, created]);
+        
+        setNewName(''); setNewAmount(''); setNewDescription('');
+        setNewMerchant(''); setNewLocation(''); setNewNotes('');
+        setNewFlowType('none'); setNewCategoryId('none');
+        toast.success('Template saved successfully');
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to save template');
+      }
+    });
   };
 
   const handleUpdateTemplate = async (id: string) => {
-    if (!editName.trim()) {
-      toast.error('Template name is required');
-      return;
-    }
-    if (!editAccountId) {
-      toast.error('Default account is required');
-      return;
-    }
+    if (!editName.trim()) { toast.error('Template name is required'); return; }
+    if (!editAccountId) { toast.error('Default account is required'); return; }
 
-    try {
-      const res = await fetch(`/api/templates/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editName.trim(),
-          amount: editAmount ? parseFloat(editAmount) : null,
-          type: editType,
-          flowType: (!editFlowType || editFlowType === 'none') ? null : editFlowType,
-          description: editDescription.trim() || null,
-          merchant: editMerchant.trim() || null,
-          location: editLocation.trim() || null,
-          notes: editNotes.trim() || null,
-          accountId: editAccountId,
-          categoryId: (!editCategoryId || editCategoryId === 'none') ? null : editCategoryId,
-        }),
-      });
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/templates/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: editName.trim(),
+            amount: editAmount ? parseFloat(editAmount) : null,
+            type: editType,
+            flowType: (!editFlowType || editFlowType === 'none') ? null : editFlowType,
+            description: editDescription.trim() || null,
+            merchant: editMerchant.trim() || null,
+            location: editLocation.trim() || null,
+            notes: editNotes.trim() || null,
+            accountId: editAccountId,
+            categoryId: (!editCategoryId || editCategoryId === 'none') ? null : editCategoryId,
+          }),
+        });
 
-      if (!res.ok) throw new Error('Failed to update template');
-      const updated = await res.json();
-      setTemplates(templates.map(t => t.id === id ? { ...updated, amount: updated.amount ? Number(updated.amount) : null } : t));
-      setEditingTplId(null);
-      toast.success('Template updated successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to update template');
-    }
+        if (!res.ok) throw new Error('Failed to update template');
+        const updated = await res.json();
+        setTemplates(templates.map(t => t.id === id ? { ...updated, amount: updated.amount ? Number(updated.amount) : null } : t));
+        setEditingTplId(null);
+        toast.success('Template updated successfully');
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to update template');
+      }
+    });
   };
 
   const handleDeleteTemplate = async (id: string) => {
     if (!confirm('Are you sure you want to delete this template?')) return;
     try {
-      const res = await fetch(`/api/templates/${id}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete template');
       setTemplates(templates.filter(t => t.id !== id));
       toast.success('Template deleted successfully');
@@ -209,25 +171,15 @@ export default function TemplatesSettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      <div className="flex items-center gap-3">
-        <Link href="/settings">
-          <Button variant="ghost" size="icon" className="h-9 w-9 border border-border/40 bg-card/40 rounded-xl hover:bg-accent">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <PageHeader title="Transaction Templates" description="Manage saved templates for prefilling fast transactions" />
-      </div>
-
       <Card className="glass border-border bg-card/60 backdrop-blur-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-amber-500" />
+            <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
             Manage Transaction Templates
           </CardTitle>
           <CardDescription>Templates allow you to save standard transaction shapes (like Netflix, Rent, Salary) for 1-click pre-fills.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Add Template */}
           <div className="p-5 rounded-xl border border-border/20 bg-background/20 space-y-4">
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Create New Template</h4>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -255,9 +207,7 @@ export default function TemplatesSettingsPage() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground font-semibold">Transaction Category Type</Label>
                 <Select value={newType} onValueChange={(val: any) => val && setNewType(val)}>
-                  <SelectTrigger className="h-10 bg-background/50 rounded-lg text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-10 bg-background/50 rounded-lg text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EXPENSE">Expense</SelectItem>
                     <SelectItem value="INCOME">Income</SelectItem>
@@ -287,9 +237,7 @@ export default function TemplatesSettingsPage() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground font-semibold">Category (Optional)</Label>
                 <Select value={newCategoryId} onValueChange={(val: any) => val && setNewCategoryId(val)}>
-                  <SelectTrigger className="h-10 bg-background/50 rounded-lg text-sm">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-10 bg-background/50 rounded-lg text-sm"><SelectValue placeholder="Select Category" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Category</SelectItem>
                     {categories.map(cat => (
@@ -302,9 +250,7 @@ export default function TemplatesSettingsPage() {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground font-semibold">Custom Flow Type (Optional)</Label>
                 <Select value={newFlowType} onValueChange={(val: any) => val && setNewFlowType(val)}>
-                  <SelectTrigger className="h-10 bg-background/50 rounded-lg text-sm">
-                    <SelectValue placeholder="Select Custom Flow" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-10 bg-background/50 rounded-lg text-sm"><SelectValue placeholder="Select Custom Flow" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
                     {flowTypes.map(ft => (
@@ -341,7 +287,6 @@ export default function TemplatesSettingsPage() {
             </div>
           </div>
 
-          {/* List templates */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Existing Templates</h4>
             {templates.length === 0 ? (

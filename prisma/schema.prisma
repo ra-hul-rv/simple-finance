@@ -144,7 +144,10 @@ model UserSettings {
   showAttachments      Boolean @default(true)
   sidebarOrder         String?
   sidebarSectionLabels String?
+  sidebarLayout        String?
+  colorTheme           String   @default("selvault")
   webhookToken         String?
+  defaultAccountId     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -259,10 +262,20 @@ model Category {
 }
 
 model Tag {
-  id        String           @id @default(uuid())
-  name      String
-  color     String           @default("#6366f1")
-  createdAt DateTime         @default(now())
+  id          String           @id @default(uuid())
+  name        String
+  color       String           @default("#6366f1")
+  icon        String           @default("tag")
+  description String?
+  budget      Decimal?         @db.Decimal(15, 2)
+  peopleCount Int?
+  people      String?          // JSON array of names
+  startDate   DateTime?
+  endDate     DateTime?
+  notes       String?
+  status      String           @default("ACTIVE")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt @default(now())
 
   userId       String
   user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)

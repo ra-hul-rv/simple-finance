@@ -165,6 +165,312 @@
   --sidebar-ring: oklch(0.72 0.17 55);
 }
 
+/* ===== EMERALD LIGHT ===== */
+[data-color-theme="emerald"] {
+  --background: #fafafa;
+  --foreground: #1a202c;
+  --card: #ffffff;
+  --card-foreground: #1a202c;
+  --popover: #ffffff;
+  --popover-foreground: #1a202c;
+  --primary: #22c55e;
+  --primary-foreground: #ffffff;
+  --secondary: #d4f2dc;
+  --secondary-foreground: #1a202c;
+  --muted: #edf2f7;
+  --muted-foreground: #708196;
+  --accent: #dafbe5;
+  --accent-foreground: #1a202c;
+  --destructive: #ff4747;
+  --border: #e2e8f0;
+  --input: #edf2f7;
+  --ring: #22c55e;
+
+  /* Chart palette */
+  --chart-1: #22c55e;
+  --chart-2: #3b82f6;
+  --chart-3: #8b5cf6;
+  --chart-4: #f43f5e;
+  --chart-5: #06b6d4;
+
+  /* Semantic finance colors */
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #eab304;
+  --warning-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --income: #22c55e;
+  --expense: #ff4747;
+  --glass: #ffffffcc;
+  --glass-border: #e2e8f0;
+
+  /* Sidebar */
+  --sidebar: #fafafa;
+  --sidebar-foreground: #1a202c;
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dafbe5;
+  --sidebar-accent-foreground: #1a202c;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #22c55e;
+}
+
+/* ===== EMERALD DARK ===== */
+.dark[data-color-theme="emerald"] {
+  --background: #24262c;
+  --foreground: #ffffff;
+  --card: #1e1e24;
+  --card-foreground: #ffffff;
+  --popover: #1e1e24;
+  --popover-foreground: #ffffff;
+  --primary: #22c55e;
+  --primary-foreground: #ffffff;
+  --secondary: #d4f2dc;
+  --secondary-foreground: #1a202c;
+  --muted: #29313c;
+  --muted-foreground: #a1afc0;
+  --accent: #dafbe5;
+  --accent-foreground: #1a202c;
+  --destructive: #ff4747;
+  --border: #29313c;
+  --input: #29313c;
+  --ring: #3b82f680;
+
+  /* Chart palette */
+  --chart-1: #49de80;
+  --chart-2: #3b82f6;
+  --chart-3: #8b5cf6;
+  --chart-4: #f43f5e;
+  --chart-5: #06b6d4;
+
+  /* Semantic finance colors */
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #eab304;
+  --warning-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --income: #49de80;
+  --expense: #ff4747;
+  --glass: #1e1e24cc;
+  --glass-border: #29313c;
+
+  /* Sidebar */
+  --sidebar: #24262c;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dafbe5;
+  --sidebar-accent-foreground: #1a202c;
+  --sidebar-border: #29313c;
+  --sidebar-ring: #3b82f680;
+}
+
+/* ===== MINT LEAF LIGHT ===== */
+[data-color-theme="mint-leaf"] {
+  --background: #fdfdfd;
+  --foreground: #102317;
+  --card: #ffffff;
+  --card-foreground: #102317;
+  --popover: #ffffff;
+  --popover-foreground: #102317;
+  --primary: #50af71;
+  --primary-foreground: #ffffff;
+  --secondary: #96cfaa;
+  --secondary-foreground: #0b1810;
+  --muted: #eef7f1;
+  --muted-foreground: #408c5b;
+  --accent: #dcefe3;
+  --accent-foreground: #102317;
+  --destructive: #ff4747;
+  --border: #b9dfc6;
+  --input: #eef7f1;
+  --ring: #50af71;
+
+  /* Chart palette */
+  --chart-1: #50af71;
+  --chart-2: #73bf8e;
+  --chart-3: #96cfaa;
+  --chart-4: #408c5b;
+  --chart-5: #306944;
+
+  /* Semantic finance colors */
+  --success: #50af71;
+  --success-foreground: #ffffff;
+  --warning: #eab304;
+  --warning-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --income: #50af71;
+  --expense: #ff4747;
+  --glass: #ffffffcc;
+  --glass-border: #b9dfc6;
+
+  /* Sidebar */
+  --sidebar: #fdfdfd;
+  --sidebar-foreground: #102317;
+  --sidebar-primary: #50af71;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dcefe3;
+  --sidebar-accent-foreground: #102317;
+  --sidebar-border: #b9dfc6;
+  --sidebar-ring: #50af71;
+}
+
+/* ===== MINT LEAF DARK ===== */
+.dark[data-color-theme="mint-leaf"] {
+  --background: #0b1810;
+  --foreground: #eef7f1;
+  --card: #102317;
+  --card-foreground: #eef7f1;
+  --popover: #102317;
+  --popover-foreground: #eef7f1;
+  --primary: #50af71;
+  --primary-foreground: #ffffff;
+  --secondary: #306944;
+  --secondary-foreground: #dcefe3;
+  --muted: #20462d;
+  --muted-foreground: #96cfaa;
+  --accent: #306944;
+  --accent-foreground: #eef7f1;
+  --destructive: #ff4747;
+  --border: #20462d;
+  --input: #20462d;
+  --ring: #50af71;
+
+  /* Chart palette */
+  --chart-1: #50af71;
+  --chart-2: #73bf8e;
+  --chart-3: #96cfaa;
+  --chart-4: #b9dfc6;
+  --chart-5: #408c5b;
+
+  /* Semantic finance colors */
+  --success: #50af71;
+  --success-foreground: #ffffff;
+  --warning: #eab304;
+  --warning-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --income: #50af71;
+  --expense: #ff4747;
+  --glass: #102317cc;
+  --glass-border: #20462d;
+
+  /* Sidebar */
+  --sidebar: #0b1810;
+  --sidebar-foreground: #eef7f1;
+  --sidebar-primary: #50af71;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #306944;
+  --sidebar-accent-foreground: #eef7f1;
+  --sidebar-border: #20462d;
+  --sidebar-ring: #50af71;
+}
+
+/* ===== AMETHYST SMOKE LIGHT ===== */
+[data-color-theme="amethyst-smoke"] {
+  --background: #fdfdfd;
+  --foreground: #211122;
+  --card: #ffffff;
+  --card-foreground: #211122;
+  --popover: #ffffff;
+  --popover-foreground: #211122;
+  --primary: #a553ac;
+  --primary-foreground: #ffffff;
+  --secondary: #c998cd;
+  --secondary-foreground: #170c18;
+  --muted: #f6eef7;
+  --muted-foreground: #84428a;
+  --accent: #edddee;
+  --accent-foreground: #211122;
+  --destructive: #ff4747;
+  --border: #dbbade;
+  --input: #f6eef7;
+  --ring: #a553ac;
+
+  /* Chart palette */
+  --chart-1: #a553ac;
+  --chart-2: #b775bd;
+  --chart-3: #c998cd;
+  --chart-4: #84428a;
+  --chart-5: #633267;
+
+  /* Semantic finance colors */
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #eab304;
+  --warning-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --income: #a553ac;
+  --expense: #ff4747;
+  --glass: #ffffffcc;
+  --glass-border: #dbbade;
+
+  /* Sidebar */
+  --sidebar: #fdfdfd;
+  --sidebar-foreground: #211122;
+  --sidebar-primary: #a553ac;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edddee;
+  --sidebar-accent-foreground: #211122;
+  --sidebar-border: #dbbade;
+  --sidebar-ring: #a553ac;
+}
+
+/* ===== AMETHYST SMOKE DARK ===== */
+.dark[data-color-theme="amethyst-smoke"] {
+  --background: #170c18;
+  --foreground: #f6eef7;
+  --card: #211122;
+  --card-foreground: #f6eef7;
+  --popover: #211122;
+  --popover-foreground: #f6eef7;
+  --primary: #a553ac;
+  --primary-foreground: #ffffff;
+  --secondary: #633267;
+  --secondary-foreground: #edddee;
+  --muted: #422145;
+  --muted-foreground: #c998cd;
+  --accent: #633267;
+  --accent-foreground: #f6eef7;
+  --destructive: #ff4747;
+  --border: #422145;
+  --input: #422145;
+  --ring: #a553ac;
+
+  /* Chart palette */
+  --chart-1: #a553ac;
+  --chart-2: #b775bd;
+  --chart-3: #c998cd;
+  --chart-4: #dbbade;
+  --chart-5: #84428a;
+
+  /* Semantic finance colors */
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #eab304;
+  --warning-foreground: #ffffff;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --income: #a553ac;
+  --expense: #ff4747;
+  --glass: #211122cc;
+  --glass-border: #422145;
+
+  /* Sidebar */
+  --sidebar: #170c18;
+  --sidebar-foreground: #f6eef7;
+  --sidebar-primary: #a553ac;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #633267;
+  --sidebar-accent-foreground: #f6eef7;
+  --sidebar-border: #422145;
+  --sidebar-ring: #a553ac;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -199,35 +505,55 @@
     border: 1px solid var(--glass-border);
   }
 
-  /* Gradient backgrounds — amber-centric */
+  /* Gradient backgrounds */
   .gradient-primary {
-    background: linear-gradient(135deg, oklch(0.65 0.18 55), oklch(0.55 0.2 35));
+    background: linear-gradient(135deg, var(--primary), var(--primary));
+    opacity: 0.9;
+  }
+  .gradient-primary:hover {
+    opacity: 1;
   }
 
   .gradient-success {
-    background: linear-gradient(135deg, oklch(0.6 0.19 145), oklch(0.55 0.2 160));
+    background: linear-gradient(135deg, var(--success), var(--success));
+    opacity: 0.9;
+  }
+  .gradient-success:hover {
+    opacity: 1;
   }
 
   .gradient-danger {
-    background: linear-gradient(135deg, oklch(0.55 0.24 27), oklch(0.5 0.22 10));
+    background: linear-gradient(135deg, var(--destructive), var(--destructive));
+    opacity: 0.9;
+  }
+  .gradient-danger:hover {
+    opacity: 1;
   }
 
   .gradient-warning {
-    background: linear-gradient(135deg, oklch(0.72 0.18 75), oklch(0.68 0.16 55));
+    background: linear-gradient(135deg, var(--warning), var(--warning));
+    opacity: 0.9;
+  }
+  .gradient-warning:hover {
+    opacity: 1;
   }
 
   .gradient-info {
-    background: linear-gradient(135deg, oklch(0.55 0.2 264), oklch(0.5 0.22 280));
+    background: linear-gradient(135deg, var(--info), var(--info));
+    opacity: 0.9;
+  }
+  .gradient-info:hover {
+    opacity: 1;
   }
 
   /* Mesh gradient background for pages */
   .gradient-mesh {
     background:
-      radial-gradient(at 40% 20%, oklch(0.72 0.17 55 / 8%) 0px, transparent 50%),
-      radial-gradient(at 80% 0%, oklch(0.55 0.2 35 / 6%) 0px, transparent 50%),
-      radial-gradient(at 0% 50%, oklch(0.7 0.18 145 / 5%) 0px, transparent 50%),
-      radial-gradient(at 80% 50%, oklch(0.65 0.2 264 / 4%) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, oklch(0.72 0.17 55 / 6%) 0px, transparent 50%);
+      radial-gradient(at 40% 20%, color-mix(in srgb, var(--primary) 8%, transparent) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, color-mix(in srgb, var(--secondary) 6%, transparent) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, color-mix(in srgb, var(--success) 5%, transparent) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, color-mix(in srgb, var(--info) 4%, transparent) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, color-mix(in srgb, var(--primary) 6%, transparent) 0px, transparent 50%);
   }
 
   /* Card hover effect */
@@ -391,6 +717,24 @@
   }
   .animate-glow {
     animation: glow 2s ease-in-out infinite;
+  }
+
+  /* Emerald specific hovers */
+  .dark[data-color-theme="emerald"] .gradient-primary:hover,
+  .dark[data-color-theme="mint-leaf"] .gradient-primary:hover,
+  .dark[data-color-theme="amethyst-smoke"] .gradient-primary:hover {
+    background: linear-gradient(135deg, var(--secondary), var(--secondary));
+    color: var(--secondary-foreground);
+  }
+  .dark[data-color-theme="emerald"] .bg-black,
+  .dark[data-color-theme="mint-leaf"] .bg-black,
+  .dark[data-color-theme="amethyst-smoke"] .bg-black {
+    background-color: #1b1d21;
+  }
+  .dark[data-color-theme="emerald"] .bg-black:hover,
+  .dark[data-color-theme="mint-leaf"] .bg-black:hover,
+  .dark[data-color-theme="amethyst-smoke"] .bg-black:hover {
+    background-color: var(--primary);
   }
 
   /* Improved form spacing */

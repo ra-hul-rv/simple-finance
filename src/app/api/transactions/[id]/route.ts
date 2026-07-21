@@ -24,6 +24,7 @@ const updateTransactionSchema = z.object({
   accountId: z.string().uuid(),
   categoryId: z.string().uuid().optional().nullable(),
   transferToAccountId: z.string().uuid().optional().nullable(),
+  tags: z.array(z.string()).optional().default([]),
 });
 
 async function syncCreditCardBalances(accountId: string, prismaClient: any) {
@@ -175,6 +176,11 @@ export async function GET(
         category: true,
         transferToAccount: true,
         attachments: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
     });
 
@@ -185,6 +191,7 @@ export async function GET(
     return NextResponse.json({
       ...transaction,
       amount: Number(transaction.amount),
+      tags: (transaction as any).tags?.map((tt: any) => tt.tag) || [],
     });
   } catch (error) {
     console.error('Failed to get transaction:', error);
@@ -248,6 +255,18 @@ export async function PUT(
       await syncCreditCardBalances(newTx.accountId, tx);
       if (newTx.transferToAccountId) {
         await syncCreditCardBalances(newTx.transferToAccountId, tx);
+      }
+
+      // Sync tags
+      await tx.transactionTag.deleteMany({ where: { transactionId: id } });
+      if (validated.tags && validated.tags.length > 0) {
+        await tx.transactionTag.createMany({
+          data: validated.tags.map((tagId: string) => ({
+            transactionId: id,
+            tagId,
+          })),
+          skipDuplicates: true,
+        });
       }
 
       return newTx;

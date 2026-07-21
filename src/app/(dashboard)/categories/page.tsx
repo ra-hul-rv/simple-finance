@@ -122,6 +122,14 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+  const [mainView, setMainView] = useState<'categories' | 'tags'>('categories');
+
+  // Tag state
+  const [tags, setTags] = useState<any[]>([]);
+  const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
+  const [editingTag, setEditingTag] = useState<any>(null);
+  const [tagName, setTagName] = useState('');
+  const [tagColor, setTagColor] = useState('#6366f1');
 
   // Hierarchy selections
   const [selectedRootId, setSelectedRootId] = useState<string | null>(null);
@@ -187,8 +195,19 @@ export default function CategoriesPage() {
     }
   };
 
+  const fetchTags = async () => {
+    try {
+      const res = await fetch('/api/tags');
+      if (!res.ok) throw new Error();
+      setTags(await res.json());
+    } catch {
+      toast.error('Failed to load tags');
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
+    fetchTags();
   }, []);
 
   const roots = categories.filter((c) => c.type === currentTab && !c.parentId);
@@ -277,24 +296,96 @@ export default function CategoriesPage() {
     }
   };
 
+  // Tag CRUD handlers
+  const handleOpenAddTag = () => {
+    setEditingTag(null);
+    setTagName('');
+    setTagColor('#6366f1');
+    setIsTagDialogOpen(true);
+  };
+
+  const handleOpenEditTag = (tag: any) => {
+    setEditingTag(tag);
+    setTagName(tag.name);
+    setTagColor(tag.color);
+    setIsTagDialogOpen(true);
+  };
+
+  const handleSaveTag = () => {
+    if (!tagName.trim()) {
+      toast.error('Please enter a tag name');
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const payload = { name: tagName, color: tagColor };
+        const url = editingTag ? `/api/tags/${editingTag.id}` : '/api/tags';
+        const method = editingTag ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error('Failed to save tag');
+
+        toast.success(editingTag ? 'Tag updated' : 'Tag created');
+        setIsTagDialogOpen(false);
+        fetchTags();
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to save tag');
+      }
+    });
+  };
+
+  const handleDeleteTag = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this tag?')) return;
+
+    try {
+      const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete tag');
+      toast.success('Tag deleted');
+      fetchTags();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete tag');
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Expense Tree" description="Manage hierarchical category mappings and targets">
-        <Button size="sm" onClick={() => handleOpenAddDialog(null)} className="h-8 gap-1 gradient-primary">
-          <Plus className="h-4 w-4" />
-          Add Root Category
-        </Button>
+      <PageHeader title={mainView === 'tags' ? 'Tags' : 'Expense Tree'} description={mainView === 'tags' ? 'Manage tags to group transactions across categories' : 'Manage hierarchical category mappings and targets'}>
+        {mainView === 'tags' ? (
+          <Button size="sm" onClick={handleOpenAddTag} className="h-8 gap-1 gradient-primary">
+            <Plus className="h-4 w-4" />
+            Add Tag
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => handleOpenAddDialog(null)} className="h-8 gap-1 gradient-primary">
+            <Plus className="h-4 w-4" />
+            Add Root Category
+          </Button>
+        )}
       </PageHeader>
 
-      <div className="flex justify-between items-center bg-card/40 p-1.5 rounded-lg border border-border/50 max-w-[280px]">
-        <Tabs value={currentTab} onValueChange={(val: any) => {
-          setCurrentTab(val as 'EXPENSE' | 'INCOME');
-          setSelectedRootId(null);
-          setSelectedSub1Id(null);
+      <div className="flex justify-between items-center bg-card/40 p-1.5 rounded-lg border border-border/50 max-w-[340px]">
+        <Tabs value={mainView === 'tags' ? 'TAGS' : currentTab} onValueChange={(val: any) => {
+          if (val === 'TAGS') {
+            setMainView('tags');
+          } else {
+            setMainView('categories');
+            setCurrentTab(val as 'EXPENSE' | 'INCOME');
+            setSelectedRootId(null);
+            setSelectedSub1Id(null);
+          }
         }} className="w-full">
-          <TabsList className="grid grid-cols-2 w-full h-8">
+          <TabsList className="grid grid-cols-3 w-full h-8">
             <TabsTrigger value="EXPENSE" className="text-xs">Expense</TabsTrigger>
             <TabsTrigger value="INCOME" className="text-xs">Income</TabsTrigger>
+            <TabsTrigger value="TAGS" className="text-xs">Tags</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -303,7 +394,7 @@ export default function CategoriesPage() {
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : (
+      ) : mainView === 'categories' ? (
         <div className="grid gap-6 md:grid-cols-3 h-[550px] overflow-hidden items-stretch">
           {/* Column 1: Primary Root */}
           <Card className="glass flex flex-col h-full overflow-hidden">
@@ -452,6 +543,51 @@ export default function CategoriesPage() {
             </div>
           </Card>
         </div>
+        ) : (
+        /* Tags View */
+        <Card className="glass">
+          <div className="flex items-center justify-between border-b p-4">
+            <span className="label-uppercase text-xs font-bold text-muted-foreground">All Tags</span>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary font-bold">{tags.length}</span>
+          </div>
+          <div className="p-3 space-y-1.5">
+            {tags.length === 0 ? (
+              <div className="flex h-32 flex-col items-center justify-center text-xs text-muted-foreground">
+                <Tag className="h-8 w-8 mb-2 opacity-50" />
+                No tags yet. Create one to get started.
+              </div>
+            ) : (
+              tags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className="flex items-center justify-between rounded-lg p-3 text-sm font-semibold transition-all duration-200 hover:bg-accent/40 text-muted-foreground hover:text-foreground border border-transparent"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                    <span className="truncate font-semibold">{tag.name}</span>
+                    {tag._count?.transactions != null && (
+                      <span className="text-xs text-muted-foreground">{tag._count.transactions} txn{tag._count.transactions !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleOpenEditTag(tag)}
+                      className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTag(tag.id)}
+                      className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
       )}
 
       {/* Add / Edit Category Dialog */}
@@ -549,6 +685,35 @@ export default function CategoriesPage() {
               ) : (
                 'Save'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add / Edit Tag Dialog */}
+      <Dialog open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen}>
+        <DialogContent className="form-spacious sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{editingTag ? 'Edit Tag' : 'Create Tag'}</DialogTitle>
+            <DialogDescription>Tags help you group transactions across categories.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="label-uppercase text-muted-foreground">Tag Name</Label>
+              <Input placeholder="e.g. Ponmudi Trip" value={tagName} onChange={(e) => setTagName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="label-uppercase text-muted-foreground">Color</Label>
+              <div className="flex items-center gap-2">
+                <Input type="color" className="w-14 h-11 p-1 border rounded-xl cursor-pointer" value={tagColor} onChange={(e) => setTagColor(e.target.value)} style={{ backgroundColor: tagColor }} />
+                <span className="text-xs font-mono">{tagColor}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTagDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveTag} disabled={isPending} className="gradient-primary">
+              {isPending ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Saving...</> : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

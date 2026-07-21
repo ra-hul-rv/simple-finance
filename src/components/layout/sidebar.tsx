@@ -20,6 +20,7 @@ import {
   DollarSign,
   ChevronLeft,
   Sparkles,
+  Vault,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,36 +37,53 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, ShoppingBag, ShieldCheck, Ticket, Cpu, Mail, Calendar as CalendarIcon, Users, CreditCard } from 'lucide-react';
+import { User, LogOut, ShoppingBag, ShieldCheck, Ticket, Cpu, Mail, Calendar as CalendarIcon, Users, CreditCard, FolderKanban } from 'lucide-react';
 
-const mainNav = [
-  { title: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { title: 'AI Inbox', href: '/inbox', icon: Mail },
-  { title: 'Accounts', href: '/accounts', icon: Wallet },
-  { title: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
-  { title: 'Income', href: '/income', icon: DollarSign },
-  { title: 'Categories', href: '/categories', icon: Tag },
-  { title: 'People', href: '/people', icon: Users },
-];
+import { DEFAULT_SIDEBAR_LAYOUT, SidebarLayout, SidebarSectionNode } from '../settings/sidebar-editor';
 
-const financeNav = [
-  { title: 'Budgets', href: '/budgets', icon: PiggyBank },
-  { title: 'Bills & Subs', href: '/recurring', icon: Repeat },
-  { title: 'Fixed Deposits', href: '/fixed-deposits', icon: Landmark },
-  { title: 'Investments', href: '/investments', icon: TrendingUp },
-  { title: 'Lending & Debts', href: '/lending', icon: ArrowLeftRight },
-  { title: 'EMIs', href: '/emis', icon: CreditCard },
-  { title: 'Shopping List', href: '/shopping', icon: ShoppingBag },
-  { title: 'Warranties', href: '/warranties', icon: ShieldCheck },
-  { title: 'Coupons Wallet', href: '/coupons', icon: Ticket },
-  { title: 'Automations', href: '/automations', icon: Cpu },
-];
+const ICON_MAP: Record<string, React.ElementType> = {
+  dashboard: LayoutDashboard,
+  inbox: Mail,
+  accounts: Wallet,
+  transactions: ArrowLeftRight,
+  income: DollarSign,
+  categories: Tag,
+  people: Users,
+  budgets: PiggyBank,
+  recurring: Repeat,
+  groups: FolderKanban,
+  'fixed-deposits': Landmark,
+  investments: TrendingUp,
+  lending: ArrowLeftRight,
+  shopping: ShoppingBag,
+  vault: Vault,
+  automations: Cpu,
+  calendar: CalendarIcon,
+  analytics: BarChart3,
+  reports: FileText,
+};
 
-const analyticsNav = [
-  { title: 'Calendar', href: '/calendar', icon: CalendarIcon },
-  { title: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { title: 'Reports', href: '/reports', icon: FileText },
-];
+const DEFAULT_TITLE_MAP: Record<string, string> = {
+  dashboard: 'Dashboard',
+  inbox: 'AI Inbox',
+  accounts: 'Accounts',
+  transactions: 'Transactions',
+  income: 'Income',
+  categories: 'Categories',
+  people: 'People',
+  budgets: 'Budgets',
+  recurring: 'Bills & Subs',
+  groups: 'Groups',
+  'fixed-deposits': 'Fixed Deposits',
+  investments: 'Investments',
+  lending: 'Lending & Debts',
+  shopping: 'Shopping List',
+  vault: 'Vault',
+  automations: 'Automations',
+  calendar: 'Calendar',
+  analytics: 'Analytics',
+  reports: 'Reports',
+};
 
 interface SidebarProps {
   collapsed: boolean;
@@ -80,52 +98,42 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     ? session.user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'CU';
 
-  const [orderedMain, setOrderedMain] = useState(mainNav);
-  const [orderedFinance, setOrderedFinance] = useState(financeNav);
-  const [orderedAnalytics, setOrderedAnalytics] = useState(analyticsNav);
-  const [sectionLabels, setSectionLabels] = useState({
-    overview: 'Overview',
-    finance: 'Finance',
-    insights: 'Insights',
-    system: 'System',
-  });
+  const [layout, setLayout] = useState<SidebarLayout>(DEFAULT_SIDEBAR_LAYOUT);
 
   useEffect(() => {
     const handleStorageChange = () => {
-      const saved = localStorage.getItem('sf_sidebar_order');
+      const saved = localStorage.getItem('sf_sidebar_layout');
       if (saved) {
         try {
-          const order = JSON.parse(saved) as string[];
-          const reorder = (items: typeof mainNav) => {
-            return [...items].sort((a, b) => {
-              const indexA = order.indexOf(a.href);
-              const indexB = order.indexOf(b.href);
-              if (indexA === -1 && indexB === -1) return 0;
-              if (indexA === -1) return 1;
-              if (indexB === -1) return -1;
-              return indexA - indexB;
+          const parsed = JSON.parse(saved) as SidebarLayout;
+          if (parsed && parsed.sections) {
+            // Auto-migrate legacy items (coupons/warranties) to vault
+            let migrated = false;
+            parsed.sections.forEach(sec => {
+              const hasCoupons = sec.items.some(i => i.id === 'coupons');
+              const hasWarranties = sec.items.some(i => i.id === 'warranties');
+              const hasVault = sec.items.some(i => i.id === 'vault');
+              
+              if (hasCoupons || hasWarranties) {
+                migrated = true;
+                const firstLegacyIndex = sec.items.findIndex(i => i.id === 'coupons' || i.id === 'warranties');
+                sec.items = sec.items.filter(i => i.id !== 'coupons' && i.id !== 'warranties');
+                if (!hasVault && firstLegacyIndex !== -1) {
+                  sec.items.splice(firstLegacyIndex, 0, { id: 'vault', title: null, isHidden: false });
+                }
+              }
             });
-          };
-          setOrderedMain(reorder(mainNav));
-          setOrderedFinance(reorder(financeNav));
-          setOrderedAnalytics(reorder(analyticsNav));
+            
+            setLayout(parsed);
+            if (migrated) {
+              localStorage.setItem('sf_sidebar_layout', JSON.stringify(parsed));
+            }
+          }
         } catch (e) {
           console.error(e);
         }
       } else {
-        setOrderedMain(mainNav);
-        setOrderedFinance(financeNav);
-        setOrderedAnalytics(analyticsNav);
-      }
-
-      const savedLabels = localStorage.getItem('sf_sidebar_section_labels');
-      if (savedLabels) {
-        try {
-          const parsed = JSON.parse(savedLabels);
-          setSectionLabels(prev => ({ ...prev, ...parsed }));
-        } catch (e) {
-          console.error(e);
-        }
+        setLayout(DEFAULT_SIDEBAR_LAYOUT);
       }
     };
 
@@ -136,34 +144,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         const res = await fetch('/api/settings');
         if (res.ok) {
           const data = await res.json();
-          if (data.sidebarOrder) {
-            const orderIds = data.sidebarOrder.split(',');
-            const idToHref: Record<string, string> = {
-              dashboard: '/',
-              inbox: '/inbox',
-              accounts: '/accounts',
-              transactions: '/transactions',
-              income: '/income',
-              categories: '/categories',
-              budgets: '/budgets',
-              recurring: '/recurring',
-              'fixed-deposits': '/fixed-deposits',
-              investments: '/investments',
-              debts: '/debts',
-              loans: '/loans',
-              shopping: '/shopping',
-              warranties: '/warranties',
-              coupons: '/coupons',
-              automations: '/automations',
-              calendar: '/calendar',
-              analytics: '/analytics',
-              reports: '/reports'
-            };
-            const hrefOrder = orderIds.map((id: string) => idToHref[id]).filter(Boolean);
-            localStorage.setItem('sf_sidebar_order', JSON.stringify(hrefOrder));
-          }
-          if (data.sidebarSectionLabels) {
-            localStorage.setItem('sf_sidebar_section_labels', data.sidebarSectionLabels);
+          // Migration from old keys
+          if (data.sidebarLayout) {
+            localStorage.setItem('sf_sidebar_layout', data.sidebarLayout);
+          } else if (data.sidebarOrder || data.sidebarSectionLabels) {
+             // Fallback to default if they had old style customizations but no new layout
+             localStorage.setItem('sf_sidebar_layout', JSON.stringify(DEFAULT_SIDEBAR_LAYOUT));
           }
           handleStorageChange();
         }
@@ -233,19 +219,30 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return content;
   };
 
-  const NavSection = ({ title, items }: { title: string; items: typeof mainNav }) => (
-    <div className="space-y-0.5">
-      {!collapsed && (
-        <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
-          {title}
-        </p>
-      )}
-      {collapsed && <Separator className="my-2" />}
-      {items.map((item) => (
-        <NavItem key={item.href} item={item} />
-      ))}
-    </div>
-  );
+  const NavSection = ({ section }: { section: SidebarSectionNode }) => {
+    if (section.isCollapsed || section.items.filter(i => !i.isHidden).length === 0) return null;
+
+    return (
+      <div className="space-y-0.5">
+        {!collapsed && (
+          <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            {section.title || section.id}
+          </p>
+        )}
+        {collapsed && <Separator className="my-2" />}
+        {section.items.filter(i => !i.isHidden).map((item) => {
+          const href = item.id === 'dashboard' ? '/' : `/${item.id}`;
+          const Icon = ICON_MAP[item.id] || LayoutDashboard;
+          return (
+            <NavItem 
+              key={item.id} 
+              item={{ title: item.title || DEFAULT_TITLE_MAP[item.id] || item.id, href, icon: Icon }} 
+            />
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <motion.aside
@@ -284,10 +281,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <div className="space-y-6">
-          <NavSection title={sectionLabels.overview} items={orderedMain} />
-          <NavSection title={sectionLabels.finance} items={orderedFinance} />
-          <NavSection title={sectionLabels.insights} items={orderedAnalytics} />
-          <NavSection title={sectionLabels.system} items={[{ title: 'Settings', href: '/settings', icon: Settings }]} />
+          {layout.sections.map(section => (
+            <NavSection key={section.id} section={section} />
+          ))}
+          <div className="space-y-0.5">
+            {!collapsed && (
+              <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                System
+              </p>
+            )}
+            {collapsed && <Separator className="my-2" />}
+            <NavItem item={{ title: 'Settings', href: '/settings', icon: Settings }} />
+          </div>
         </div>
       </ScrollArea>
 

@@ -28,7 +28,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 
-export default function EMIsPage() {
+export function EmisTab() {
   const [emis, setEmis] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [people, setPeople] = useState<any[]>([]);
@@ -48,6 +48,7 @@ export default function EMIsPage() {
   const [selectedEmiPersonId, setSelectedEmiPersonId] = useState<string | null>(null);
   const [paymentSource, setPaymentSource] = useState<'SELF' | 'FRIEND'>('SELF');
   const [paymentSourceAccountId, setPaymentSourceAccountId] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Form states
   const [itemName, setItemName] = useState('');
@@ -182,6 +183,7 @@ export default function EMIsPage() {
     setSelectedEmiPersonId(personId);
     setPaymentSource('SELF');
     setPaymentSourceAccountId(accounts.find(a => ['SAVINGS', 'CURRENT', 'CASH', 'OTHER'].includes(a.type))?.id || '');
+    setPaymentDate(new Date().toISOString().split('T')[0]);
     setIsPaymentDialogOpen(true);
   };
 
@@ -193,7 +195,7 @@ export default function EMIsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'PAID',
-          paidDate: new Date().toISOString(),
+          paidDate: new Date(paymentDate).toISOString(),
           paymentSource,
           sourceAccountId: paymentSourceAccountId,
         }),
@@ -242,10 +244,7 @@ export default function EMIsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <PageHeader 
-          title="EMI Tracker" 
-          description="Track your EMIs, splits, taxes, and friends' EMIs"
-        />
+
         <Button onClick={handleOpenDialog} className="rounded-xl shadow-sm">
           <Plus className="mr-2 h-4 w-4" /> Add EMI
         </Button>
@@ -585,7 +584,9 @@ export default function EMIsPage() {
                 <Label className="label-uppercase text-muted-foreground">Account/Card *</Label>
                 <Select value={accountId} onValueChange={setAccountId}>
                   <SelectTrigger className="h-11 bg-background/50">
-                    <SelectValue placeholder="Select Account" />
+                    <SelectValue>
+                      {accountId ? accounts.find(a => a.id === accountId)?.name : 'Select Account'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {accounts.map(acc => (
@@ -600,7 +601,9 @@ export default function EMIsPage() {
                 </Label>
                 <Select value={personId || "none"} onValueChange={(val: any) => setPersonId(val === 'none' ? '' : val)}>
                   <SelectTrigger className="h-11 bg-background/50">
-                    <SelectValue placeholder="Self" />
+                    <SelectValue>
+                      {personId ? people.find(p => p.id === personId)?.name : 'Self'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Self</SelectItem>
@@ -671,10 +674,22 @@ export default function EMIsPage() {
             </div>
 
             <div className="space-y-2">
+              <Label>Payment Date</Label>
+              <Input 
+                type="date" 
+                value={paymentDate} 
+                onChange={(e) => setPaymentDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label>{paymentSource === 'SELF' ? 'Source Bank Account' : 'Receiving Bank Account'}</Label>
               <Select value={paymentSourceAccountId} onValueChange={setPaymentSourceAccountId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select account" />
+                  <SelectValue>
+                    {paymentSourceAccountId ? accounts.find(a => a.id === paymentSourceAccountId)?.name : 'Select account'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.filter(a => ['SAVINGS', 'CURRENT', 'CASH', 'OTHER'].includes(a.type)).map((account) => (

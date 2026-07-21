@@ -8,11 +8,14 @@ const settingsSchema = z.object({
   dateFormat: z.string().min(1),
   locale: z.string().min(1),
   theme: z.string().min(1),
+  colorTheme: z.string().min(1).optional(),
   showDashboardCharts: z.boolean().optional(),
   showAccountsCharts: z.boolean().optional(),
   showBillsCharts: z.boolean().optional(),
   sidebarOrder: z.string().optional().nullable(),
   sidebarSectionLabels: z.string().optional().nullable(),
+  sidebarLayout: z.string().optional().nullable(),
+  defaultAccountId: z.string().optional().nullable(),
 });
 
 export async function GET() {
@@ -41,6 +44,7 @@ export async function GET() {
           dateFormat: 'dd/MM/yyyy',
           locale: 'en-IN',
           theme: 'dark',
+          colorTheme: 'selvault',
           showDashboardCharts: true,
           showAccountsCharts: true,
           showBillsCharts: true,
