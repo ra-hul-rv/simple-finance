@@ -67,6 +67,8 @@ interface TagTransaction {
   notes?: string | null;
   account?: { id: string; name: string } | null;
   category: { id: string; name: string; color: string; parent: { name: string } | null } | null;
+  splitCount?: number | null;
+  splitType?: string | null;
 }
 
 interface TagGroup {
@@ -88,6 +90,8 @@ interface TagGroup {
   totalIncome: number;
   totalExpense: number;
   netAmount: number;
+  amountYouOwe?: number;
+  amountYouAreOwed?: number;
   categoryBreakdown: CategoryBreakdown[];
   transactions?: TagTransaction[];
 }
@@ -124,6 +128,12 @@ export default function GroupsPage() {
 
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Split Transaction
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+  const [splittingTx, setSplittingTx] = useState<TagTransaction | null>(null);
+  const [splitCountForm, setSplitCountForm] = useState('');
+  const [splitTypeForm, setSplitTypeForm] = useState<'MULTIPLY' | 'DIVIDE'>('DIVIDE');
 
   const [isPending, startTransition] = useTransition();
 
@@ -256,6 +266,43 @@ export default function GroupsPage() {
     } catch {
       toast.error('Failed to delete group');
     }
+  };
+
+  const handleOpenSplit = (tx: TagTransaction) => {
+    setSplittingTx(tx);
+    setSplitCountForm(tx.splitCount ? tx.splitCount.toString() : '');
+    setSplitTypeForm((tx.splitType as 'MULTIPLY' | 'DIVIDE') || 'DIVIDE');
+    setSplitDialogOpen(true);
+  };
+
+  const handleSaveSplit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!splittingTx) return;
+    
+    startTransition(async () => {
+      try {
+        const payload = {
+          splitCount: splitCountForm ? parseInt(splitCountForm) : null,
+          splitType: splitCountForm ? splitTypeForm : null,
+        };
+        const res = await fetch(`/api/transactions/${splittingTx.id}/split`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error();
+        
+        toast.success('Transaction split updated');
+        setSplitDialogOpen(false);
+        // Refresh expanded data
+        if (expandedId) {
+          handleExpand(expandedId);
+          fetchTags(); // Also refresh main list to update group totals
+        }
+      } catch {
+        toast.error('Failed to update split');
+      }
+    });
   };
 
   // ── Filtering & sorting ──
@@ -670,6 +717,18 @@ export default function GroupsPage() {
                                       {formatCurrency(Math.abs(expandedData.netAmount))}
                                     </span>
                                   </div>
+                                  {(expandedData.amountYouOwe ?? 0) > 0 && (
+                                    <div className="flex items-center justify-between bg-red-500/10 p-2 rounded border border-red-500/20">
+                                      <span className="text-xs text-red-500 font-semibold">You Owe (Multiply Splits)</span>
+                                      <span className="text-sm font-bold text-red-500">{formatCurrency(expandedData.amountYouOwe!)}</span>
+                                    </div>
+                                  )}
+                                  {(expandedData.amountYouAreOwed ?? 0) > 0 && (
+                                    <div className="flex items-center justify-between bg-emerald-500/10 p-2 rounded border border-emerald-500/20">
+                                      <span className="text-xs text-emerald-500 font-semibold">You Are Owed (Divide Splits)</span>
+                                      <span className="text-sm font-bold text-emerald-500">{formatCurrency(expandedData.amountYouAreOwed!)}</span>
+                                    </div>
+                                  )}
                                   {expandedData.peopleCount && expandedData.peopleCount > 0 && (
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs text-muted-foreground">Per Person Share</span>
@@ -705,6 +764,7 @@ export default function GroupsPage() {
                                       <TableHead className="text-xs font-semibold py-2">Category</TableHead>
                                       <TableHead className="text-xs font-semibold py-2">Type</TableHead>
                                       <TableHead className="text-xs font-semibold text-right py-2">Amount</TableHead>
+                                      <TableHead className="text-xs font-semibold py-2 w-10"></TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -731,7 +791,29 @@ export default function GroupsPage() {
                                           </span>
                                         </TableCell>
                                         <TableCell className={`py-2 text-xs font-bold text-right ${tx.type === 'INCOME' || tx.type === 'REFUND' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                          {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                          {tx.splitCount ? (
+                                            <div className="flex flex-col items-end">
+                                              <span className="text-[10px] text-muted-foreground font-normal line-through mb-0.5">
+                                                {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                              </span>
+                                              <span>
+                                                {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}
+                                                {formatCurrency(tx.splitType === 'MULTIPLY' ? tx.amount * tx.splitCount : tx.amount)}
+                                              </span>
+                                              <span className="text-[9px] font-normal text-muted-foreground">
+                                                (Split {tx.splitType === 'MULTIPLY' ? '*' : '/'} {tx.splitCount})
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                            </>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="py-2 text-right">
+                                          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleOpenSplit(tx)}>
+                                            <Edit2 className="h-3 w-3" />
+                                          </Button>
                                         </TableCell>
                                       </TableRow>
                                     ))}
@@ -848,6 +930,56 @@ export default function GroupsPage() {
               <Button type="submit" disabled={isPending} className="h-9 text-xs gradient-primary font-semibold">
                 {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                 {editingTag ? 'Save Changes' : 'Create Group'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Split Transaction Dialog ── */}
+      <Dialog open={splitDialogOpen} onOpenChange={setSplitDialogOpen}>
+        <DialogContent className="form-spacious glass-dialog sm:max-w-[400px]">
+          <form onSubmit={handleSaveSplit} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-foreground">Configure Split</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Set how this transaction is split among the group.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Number of People</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 3 (leave blank for no split)"
+                  value={splitCountForm}
+                  onChange={(e) => setSplitCountForm(e.target.value)}
+                  className="h-10 px-3 rounded-xl border-border/40 bg-background/20 font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Split Logic</Label>
+                <Select value={splitTypeForm} onValueChange={(val: any) => setSplitTypeForm(val)}>
+                  <SelectTrigger className="bg-background/20 border-border/40 h-10 rounded-xl text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DIVIDE" className="text-xs text-emerald-500 font-semibold">Divide (They owe me money)</SelectItem>
+                    <SelectItem value="MULTIPLY" className="text-xs text-red-500 font-semibold">Multiply (I owe them money)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSplitDialogOpen(false)} className="h-9 text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isPending} className="h-9 text-xs gradient-primary">
+                {isPending ? 'Saving...' : 'Save Split'}
               </Button>
             </DialogFooter>
           </form>

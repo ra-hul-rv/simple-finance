@@ -95,6 +95,8 @@ interface Transaction {
   attachments?: Attachment[];
   personId?: string | null;
   loanId?: string | null;
+  splitCount?: number | null;
+  splitType?: string | null;
   tags?: Tag[];
 }
 
@@ -191,7 +193,7 @@ export default function TransactionsPage() {
   // Lending states
   const [personId, setPersonId] = useState('');
   const [isLending, setIsLending] = useState(false);
-  
+
   // File Upload states
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);

@@ -3,7 +3,11 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import imageCompression from 'browser-image-compression';
 
 interface MultipleFileUploadProps {
   onFilesChange: (files: File[]) => void;
@@ -40,6 +44,8 @@ export function MultipleFileUpload({
 }: MultipleFileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [shouldCompress, setShouldCompress] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Generate previews for newly selected files
   useEffect(() => {
@@ -67,31 +73,60 @@ export function MultipleFileUpload({
       const validFiles: File[] = [];
       const allowedTypes = accept.split(',');
 
-      Array.from(newFiles).forEach((file) => {
-        if (file.size > maxSizeMB * 1024 * 1024) {
-          alert(`File "${file.name}" is too large. Max size is ${maxSizeMB}MB.`);
-          return;
-        }
+      const processFiles = async () => {
+        setIsProcessing(true);
+        try {
+          for (const file of Array.from(newFiles)) {
+            let processedFile = file as File;
 
-        const isAllowed = allowedTypes.some((type) => {
-          if (type.includes('/*')) {
-            return file.type.startsWith(type.replace('/*', ''));
+            if (shouldCompress && file.type.startsWith('image/')) {
+              try {
+                const options = {
+                  maxSizeMB: 2, // compress under 2MB
+                  maxWidthOrHeight: 1920,
+                  useWebWorker: true,
+                  initialQuality: 0.7, // 30-40% compression approx
+                };
+                const compressedBlob = await imageCompression(file as File, options);
+                processedFile = new File([compressedBlob], file.name, {
+                  type: file.type,
+                  lastModified: Date.now(),
+                });
+              } catch (error) {
+                console.error("Error compressing image:", error);
+              }
+            }
+
+            if (processedFile.size > maxSizeMB * 1024 * 1024) {
+              alert(`File "${processedFile.name}" is too large. Max size is ${maxSizeMB}MB.`);
+              continue;
+            }
+
+            const isAllowed = allowedTypes.some((type) => {
+              if (type.includes('/*')) {
+                return processedFile.type.startsWith(type.replace('/*', ''));
+              }
+              return processedFile.type === type;
+            });
+
+            if (isAllowed || processedFile.type.startsWith('image/')) {
+              validFiles.push(processedFile);
+            } else {
+              alert(`File format of "${processedFile.name}" is not supported.`);
+            }
           }
-          return file.type === type;
-        });
 
-        if (isAllowed || file.type.startsWith('image/')) {
-          validFiles.push(file);
-        } else {
-          alert(`File format of "${file.name}" is not supported.`);
+          if (validFiles.length > 0) {
+            onFilesChange([...selectedFiles, ...validFiles]);
+          }
+        } finally {
+          setIsProcessing(false);
         }
-      });
+      };
 
-      if (validFiles.length > 0) {
-        onFilesChange([...selectedFiles, ...validFiles]);
-      }
+      processFiles();
     },
-    [maxSizeMB, selectedFiles, onFilesChange, accept]
+    [maxSizeMB, selectedFiles, onFilesChange, accept, shouldCompress]
   );
 
   // Ctrl+V paste support
@@ -176,10 +211,31 @@ export function MultipleFileUpload({
           accept={accept}
           onChange={handleChange}
           className="hidden"
-          disabled={disabled}
+          disabled={disabled || isProcessing}
           multiple
         />
+        {isProcessing && (
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-xl backdrop-blur-[2px]">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
       </label>
+
+      {/* Compression Toggle */}
+      <div className="flex items-center space-x-2 pt-1 pb-2 pl-1 animate-in fade-in duration-200">
+        <Checkbox 
+          id="compress-images" 
+          checked={shouldCompress}
+          onCheckedChange={(checked) => setShouldCompress(!!checked)}
+          disabled={disabled || isProcessing}
+        />
+        <Label 
+          htmlFor="compress-images" 
+          className="text-[11px] text-muted-foreground font-medium cursor-pointer flex items-center"
+        >
+          Compress images before upload (Saves storage space)
+        </Label>
+      </div>
 
       {/* Attachments List */}
       {hasFiles && (

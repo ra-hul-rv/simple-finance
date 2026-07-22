@@ -196,6 +196,8 @@ model Transaction {
   amount      Decimal           @db.Decimal(15, 2)
   type        TransactionType
   flowType    String?
+  splitCount  Int?
+  splitType   String? // "MULTIPLY" or "DIVIDE"
   description String?
   merchant    String?
   location    String?

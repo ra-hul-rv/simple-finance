@@ -58,18 +58,38 @@ export async function GET(request: Request) {
 
       const totalIncome = txList
         .filter((tx: any) => tx.type === 'INCOME' || tx.type === 'REFUND')
-        .reduce((sum: number, tx: any) => sum + Number(tx.amount), 0);
+        .reduce((sum: number, tx: any) => {
+          const amt = Number(tx.amount);
+          if (tx.splitCount) {
+            if (tx.splitType === 'MULTIPLY') return sum + (amt * tx.splitCount);
+            if (tx.splitType === 'DIVIDE') return sum + amt; // For DIVIDE, amount is already the total
+          }
+          return sum + amt;
+        }, 0);
 
       const totalExpense = txList
         .filter((tx: any) => tx.type === 'EXPENSE')
-        .reduce((sum: number, tx: any) => sum + Number(tx.amount), 0);
+        .reduce((sum: number, tx: any) => {
+          const amt = Number(tx.amount);
+          if (tx.splitCount) {
+            if (tx.splitType === 'MULTIPLY') return sum + (amt * tx.splitCount);
+            if (tx.splitType === 'DIVIDE') return sum + amt;
+          }
+          return sum + amt;
+        }, 0);
 
       // Category breakdown
       const categoryMap = new Map<string, { name: string; amount: number; color: string }>();
       txList.filter((tx: any) => tx.type === 'EXPENSE' && tx.category).forEach((tx: any) => {
+        const amt = Number(tx.amount);
+        let adjustedAmt = amt;
+        if (tx.splitCount) {
+          if (tx.splitType === 'MULTIPLY') adjustedAmt = amt * tx.splitCount;
+        }
+        
         const catName = tx.category.parent ? `${tx.category.parent.name} > ${tx.category.name}` : tx.category.name;
         const existing = categoryMap.get(catName) || { name: catName, amount: 0, color: tx.category.color || '#6366f1' };
-        existing.amount += Number(tx.amount);
+        existing.amount += adjustedAmt;
         categoryMap.set(catName, existing);
       });
 

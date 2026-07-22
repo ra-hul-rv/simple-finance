@@ -53,20 +53,61 @@ export async function GET(
 
     const txList = tag.transactions.map((tt: any) => tt.transaction);
 
+    let amountYouOwe = 0;
+    let amountYouAreOwed = 0;
+    
+    txList.forEach((tx: any) => {
+      if (!tx.splitCount || tx.splitCount <= 1) return;
+      const amt = Number(tx.amount);
+      if (tx.type === 'EXPENSE') {
+        if (tx.splitType === 'MULTIPLY') {
+          amountYouOwe += (amt * tx.splitCount) - amt;
+        } else if (tx.splitType === 'DIVIDE') {
+          amountYouAreOwed += amt - (amt / tx.splitCount);
+        }
+      } else if (tx.type === 'INCOME' || tx.type === 'REFUND') {
+        if (tx.splitType === 'MULTIPLY') {
+          amountYouAreOwed += (amt * tx.splitCount) - amt;
+        } else if (tx.splitType === 'DIVIDE') {
+          amountYouOwe += amt - (amt / tx.splitCount);
+        }
+      }
+    });
+
     const totalIncome = txList
       .filter((tx: any) => tx.type === 'INCOME' || tx.type === 'REFUND')
-      .reduce((sum: number, tx: any) => sum + Number(tx.amount), 0);
+      .reduce((sum: number, tx: any) => {
+        const amt = Number(tx.amount);
+        if (tx.splitCount) {
+          if (tx.splitType === 'MULTIPLY') return sum + (amt * tx.splitCount);
+          if (tx.splitType === 'DIVIDE') return sum + amt; // For DIVIDE, amount is already the total
+        }
+        return sum + amt;
+      }, 0);
 
     const totalExpense = txList
       .filter((tx: any) => tx.type === 'EXPENSE')
-      .reduce((sum: number, tx: any) => sum + Number(tx.amount), 0);
+      .reduce((sum: number, tx: any) => {
+        const amt = Number(tx.amount);
+        if (tx.splitCount) {
+          if (tx.splitType === 'MULTIPLY') return sum + (amt * tx.splitCount);
+          if (tx.splitType === 'DIVIDE') return sum + amt;
+        }
+        return sum + amt;
+      }, 0);
 
     // Category breakdown
     const categoryMap = new Map<string, { name: string; amount: number; color: string }>();
     txList.filter((tx: any) => tx.type === 'EXPENSE' && tx.category).forEach((tx: any) => {
+      const amt = Number(tx.amount);
+      let adjustedAmt = amt;
+      if (tx.splitCount) {
+        if (tx.splitType === 'MULTIPLY') adjustedAmt = amt * tx.splitCount;
+      }
+      
       const catName = tx.category.parent ? `${tx.category.parent.name} > ${tx.category.name}` : tx.category.name;
       const existing = categoryMap.get(catName) || { name: catName, amount: 0, color: tx.category.color || '#6366f1' };
-      existing.amount += Number(tx.amount);
+      existing.amount += adjustedAmt;
       categoryMap.set(catName, existing);
     });
 
@@ -89,6 +130,8 @@ export async function GET(
       totalIncome,
       totalExpense,
       netAmount: totalIncome - totalExpense,
+      amountYouOwe,
+      amountYouAreOwed,
       categoryBreakdown: Array.from(categoryMap.values()).sort((a, b) => b.amount - a.amount),
       transactions: txList.map((tx: any) => ({
         id: tx.id,
@@ -105,6 +148,8 @@ export async function GET(
           color: tx.category.color,
           parent: tx.category.parent ? { name: tx.category.parent.name } : null,
         } : null,
+        splitCount: tx.splitCount,
+        splitType: tx.splitType,
       })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     });
   } catch (error) {

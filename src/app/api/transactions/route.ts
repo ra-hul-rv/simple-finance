@@ -25,6 +25,8 @@ const transactionSchema = z.object({
   categoryId: z.string().uuid('Invalid category ID').optional().nullable(),
   transferToAccountId: z.string().uuid('Invalid destination account ID').optional().nullable(),
   personId: z.string().uuid('Invalid person ID').optional().nullable(),
+  splitCount: z.number().int().min(1).optional().nullable(),
+  splitType: z.enum(['MULTIPLY', 'DIVIDE']).optional().nullable(),
   isLending: z.boolean().optional().default(false),
   tags: z.array(z.string()).optional().default([]),
 });
@@ -245,6 +247,8 @@ export async function POST(request: Request) {
           categoryId: validated.categoryId || null,
           transferToAccountId: validated.transferToAccountId || null,
           personId: validated.personId || null,
+          splitCount: validated.splitCount || null,
+          splitType: validated.splitType || null,
           userId: session.user.id,
         },
       });
