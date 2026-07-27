@@ -151,8 +151,8 @@ export default function GroupsPage() {
 
   useEffect(() => { fetchTags(); }, []);
 
-  const handleExpand = async (id: string) => {
-    if (expandedId === id) {
+  const handleExpand = async (id: string, forceOpen?: boolean) => {
+    if (expandedId === id && !forceOpen) {
       setExpandedId(null);
       setExpandedData(null);
       return;
@@ -246,7 +246,7 @@ export default function GroupsPage() {
         fetchTags();
         // Refresh expanded data if we edited the expanded tag
         if (editingTag && expandedId === editingTag.id) {
-          handleExpand(editingTag.id);
+          handleExpand(editingTag.id, true);
         }
       } catch (err: any) {
         toast.error(err.message || 'Failed to save group');
@@ -296,7 +296,7 @@ export default function GroupsPage() {
         setSplitDialogOpen(false);
         // Refresh expanded data
         if (expandedId) {
-          handleExpand(expandedId);
+          handleExpand(expandedId, true);
           fetchTags(); // Also refresh main list to update group totals
         }
       } catch {
@@ -792,17 +792,17 @@ export default function GroupsPage() {
                                         </TableCell>
                                         <TableCell className={`py-2 text-xs font-bold text-right ${tx.type === 'INCOME' || tx.type === 'REFUND' ? 'text-emerald-400' : 'text-red-400'}`}>
                                           {tx.splitCount ? (
-                                            <div className="flex flex-col items-end">
-                                              <span className="text-[10px] text-muted-foreground font-normal line-through mb-0.5">
-                                                {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}{formatCurrency(tx.amount)}
-                                              </span>
-                                              <span>
-                                                {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}
+                                            <div className="flex flex-col items-end gap-0.5 mt-1">
+                                              <div className="text-[10px] text-muted-foreground font-normal">
+                                                Indiv: {formatCurrency(tx.splitType === 'MULTIPLY' ? tx.amount : tx.amount / tx.splitCount)}
+                                              </div>
+                                              <div className="text-[13px]">
+                                                Total: {tx.type === 'INCOME' || tx.type === 'REFUND' ? '+' : '-'}
                                                 {formatCurrency(tx.splitType === 'MULTIPLY' ? tx.amount * tx.splitCount : tx.amount)}
-                                              </span>
-                                              <span className="text-[9px] font-normal text-muted-foreground">
-                                                (Split {tx.splitType === 'MULTIPLY' ? '*' : '/'} {tx.splitCount})
-                                              </span>
+                                              </div>
+                                              <div className="text-[9px] font-normal text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded mt-0.5">
+                                                Split {tx.splitType === 'MULTIPLY' ? '×' : '÷'} {tx.splitCount}
+                                              </div>
                                             </div>
                                           ) : (
                                             <>
