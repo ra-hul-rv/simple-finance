@@ -23,14 +23,17 @@ export function AdvancedTab({ settings, onUpdate }: { settings: any, onUpdate: (
   const handleSaveToken = () => {
     startTransition(async () => {
       try {
-        const res = await fetch('/api/settings', {
-          method: 'PUT',
+        // Use the dedicated webhook-token endpoint
+        const res = await fetch('/api/settings/webhook-token', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ webhookToken }),
+          body: JSON.stringify({ token: webhookToken }),
         });
 
         if (!res.ok) throw new Error('Failed to save webhook token');
         
+        const data = await res.json();
+        setWebhookToken(data.token);
         toast.success('Webhook token saved successfully');
         onUpdate();
       } catch (err: any) {

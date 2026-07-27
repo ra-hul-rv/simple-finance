@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -11,8 +11,21 @@ export async function POST() {
     }
 
     const userId = session.user.id;
-    // Generate a random 32-character hex token
-    const newToken = crypto.randomBytes(16).toString('hex');
+    
+    let newToken: string;
+    
+    // Check if a custom token was provided in the body
+    try {
+      const body = await request.json();
+      if (body.token && typeof body.token === 'string' && body.token.trim().length > 0) {
+        newToken = body.token.trim();
+      } else {
+        newToken = crypto.randomBytes(16).toString('hex');
+      }
+    } catch {
+      // No body or invalid JSON — auto-generate
+      newToken = crypto.randomBytes(16).toString('hex');
+    }
 
     const updatedSettings = await prisma.userSettings.upsert({
       where: { userId },
