@@ -4,7 +4,10 @@ import prisma from '@/lib/prisma';
 import * as z from 'zod';
 
 const updateSchema = z.object({
-  status: z.enum(['PROCESSED', 'DISMISSED'])
+  status: z.enum(['PROCESSED', 'DISMISSED']).optional(),
+  payload: z.record(z.string(), z.any()).optional(),
+}).refine(data => data.status || data.payload, {
+  message: 'At least one of status or payload must be provided',
 });
 
 export async function PUT(
@@ -32,9 +35,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    const updateData: any = {};
+    if (validated.status) updateData.status = validated.status;
+    if (validated.payload) updateData.payload = validated.payload;
+
     const updated = await prisma.inboxEvent.update({
       where: { id },
-      data: { status: validated.status }
+      data: updateData
     });
 
     return NextResponse.json(updated);

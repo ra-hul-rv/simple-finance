@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
 import { CategorySelector } from '@/components/shared/category-selector';
 import { Card, CardContent } from '@/components/ui/card';
@@ -129,6 +130,15 @@ const getCategoryPath = (category: any): string => {
 };
 
 export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-[50vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <TransactionsPageContent />
+    </Suspense>
+  );
+}
+
+function TransactionsPageContent() {
+  const searchParams = useSearchParams();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -263,9 +273,8 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && accounts.length > 0) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const action = urlParams.get('action');
+    if (accounts.length > 0) {
+      const action = searchParams.get('action');
       if (action === 'transfer') {
         setEditingTransaction(null);
         setAmount('');
@@ -283,9 +292,16 @@ export default function TransactionsPage() {
         setRemovedAttachmentIds([]);
         setIsDialogOpen(true);
         window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (action === 'new') {
+        setEditingTransaction(null);
+        setSelectedFiles([]);
+        setExistingAttachments([]);
+        setRemovedAttachmentIds([]);
+        setIsDialogOpen(true);
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-  }, [accounts]);
+  }, [accounts, searchParams]);
 
   useEffect(() => {
     fetchTransactions();
