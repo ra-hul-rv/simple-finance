@@ -99,6 +99,9 @@ interface Transaction {
   splitCount?: number | null;
   splitType?: string | null;
   tags?: Tag[];
+  subAccount?: { id: string; name: string; balance: number; color: string } | null;
+  linkedTransaction?: { id: string; amount: number; type: string; description: string } | null;
+  linkedBy?: { id: string; amount: number; type: string; description: string } | null;
 }
 
 interface Tag {
@@ -110,6 +113,8 @@ interface Tag {
 interface Account {
   id: string;
   name: string;
+  type?: string;
+  subAccounts?: any[];
 }
 
 interface Category {
@@ -210,6 +215,13 @@ function TransactionsPageContent() {
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Wallet sub-account states
+  const [subAccounts, setSubAccounts] = useState<any[]>([]);
+  const [subAccountId, setSubAccountId] = useState('');
+  const [topUpEnabled, setTopUpEnabled] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const [topUpSourceAccountId, setTopUpSourceAccountId] = useState('');
+
   const fetchTransactions = async () => {
     setLoading(true);
     try {
@@ -307,6 +319,19 @@ function TransactionsPageContent() {
     fetchTransactions();
   }, [page, limit, search, typeFilter, accountFilter, categoryFilter, tagFilter, startDate, endDate, minAmount, maxAmount, sortBy, sortOrder]);
 
+  useEffect(() => {
+    const selectedAccount = accounts.find(a => a.id === accountId);
+    if (selectedAccount?.type === 'WALLET' && selectedAccount.subAccounts && selectedAccount.subAccounts.length > 0) {
+      setSubAccounts(selectedAccount.subAccounts);
+    } else {
+      setSubAccounts([]);
+      setSubAccountId('');
+      setTopUpEnabled(false);
+      setTopUpAmount('');
+      setTopUpSourceAccountId('');
+    }
+  }, [accountId, accounts]);
+
   const toggleSort = (column: 'date' | 'amount' | 'description') => {
     if (sortBy === column) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -377,6 +402,10 @@ function TransactionsPageContent() {
     setSelectedFiles([]);
     setExistingAttachments([]);
     setRemovedAttachmentIds([]);
+    setSubAccountId('');
+    setTopUpEnabled(false);
+    setTopUpAmount('');
+    setTopUpSourceAccountId('');
     setIsDialogOpen(true);
   };
 
@@ -400,6 +429,10 @@ function TransactionsPageContent() {
     setSelectedFiles([]);
     setExistingAttachments([]);
     setRemovedAttachmentIds([]);
+    setSubAccountId('');
+    setTopUpEnabled(false);
+    setTopUpAmount('');
+    setTopUpSourceAccountId('');
     toast.success('Form cleared');
   };
 
@@ -522,6 +555,11 @@ function TransactionsPageContent() {
           location: location.trim() || null,
           notes: notes.trim() || null,
           accountId,
+          subAccountId: subAccountId || null,
+          topUp: (topUpEnabled === true) && topUpAmount && topUpSourceAccountId ? {
+            amount: parseFloat(topUpAmount),
+            sourceAccountId: topUpSourceAccountId,
+          } : null,
           categoryId: txType !== 'TRANSFER' && txType !== 'CREDIT_CARD_PAYMENT' ? categoryId : null,
           transferToAccountId: (txType === 'TRANSFER' || txType === 'CREDIT_CARD_PAYMENT') ? transferToAccountId : null,
           personId: personId || null,
@@ -916,7 +954,14 @@ function TransactionsPageContent() {
                           <span className="truncate text-primary">{tx.transferToAccount?.name || 'External'}</span>
                         </span>
                       ) : (
-                        tx.account.name
+                        <>
+                          {tx.account.name}
+                          {tx.subAccount && (
+                            <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-semibold">
+                              {tx.subAccount.name}
+                            </span>
+                          )}
+                        </>
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground italic font-medium">
@@ -1206,6 +1251,85 @@ function TransactionsPageContent() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {subAccounts.length > 0 && (
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="label-uppercase text-muted-foreground">Sub-Account / App</Label>
+                  <Select value={subAccountId} onValueChange={(val: any) => setSubAccountId(val || '')} disabled={isPending}>
+                    <SelectTrigger className="bg-background/20 border-border/40 h-11 rounded-xl text-sm">
+                      <SelectValue placeholder="Select sub-account">
+                        {subAccounts.find(sa => sa.id === subAccountId)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subAccounts.filter(sa => sa.isActive).map((sa) => (
+                        <SelectItem key={sa.id} value={sa.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sa.color }} />
+                            {sa.name}
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              Bal: ₹{sa.balance?.toFixed(2)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {subAccountId && (
+                    <div className="text-[10px] text-muted-foreground">
+                      Current balance: <span className="font-bold text-foreground">₹{subAccounts.find(sa => sa.id === subAccountId)?.balance?.toFixed(2) || '0.00'}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {subAccountId && txType === 'EXPENSE' && (
+                <div className="space-y-3 col-span-2 p-3.5 rounded-xl border border-dashed border-amber-500/25 bg-amber-500/5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <Label className="label-uppercase text-muted-foreground text-[10px] font-bold">Top-up Wallet</Label>
+                    <Checkbox
+                      checked={topUpEnabled === true}
+                      onCheckedChange={(val) => {
+                        const isChecked = val === true;
+                        setTopUpEnabled(isChecked);
+                        if (!isChecked) {
+                          setTopUpAmount('');
+                          setTopUpSourceAccountId('');
+                        }
+                      }}
+                    />
+                  </div>
+                  {topUpEnabled && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground">Top-up Amount (₹)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={topUpAmount}
+                          onChange={(e) => setTopUpAmount(e.target.value)}
+                          className="h-9 px-3 rounded-lg border-border/40 bg-background/20 font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] text-muted-foreground">From Account</Label>
+                        <Select value={topUpSourceAccountId} onValueChange={(val: any) => setTopUpSourceAccountId(val || '')}>
+                          <SelectTrigger className="bg-background/20 border-border/40 h-9 rounded-lg text-xs">
+                            <SelectValue placeholder="Select bank...">
+                              {accounts.find(a => a.id === topUpSourceAccountId)?.name}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.filter(a => a.id !== accountId && a.type !== 'WALLET').map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id} className="text-xs">{acc.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {txType !== 'TRANSFER' && txType !== 'CREDIT_CARD_PAYMENT' ? (
                 <CategorySelector

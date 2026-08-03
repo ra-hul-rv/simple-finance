@@ -29,6 +29,11 @@ const transactionSchema = z.object({
   splitType: z.enum(['MULTIPLY', 'DIVIDE']).optional().nullable(),
   isLending: z.boolean().optional().default(false),
   tags: z.array(z.string()).optional().default([]),
+  subAccountId: z.string().uuid('Invalid sub-account ID').optional().nullable(),
+  topUp: z.object({
+    amount: z.number().positive('Top-up amount must be positive'),
+    sourceAccountId: z.string().uuid('Invalid source account ID'),
+  }).optional().nullable(),
 });
 
 async function syncCreditCardBalances(accountId: string, prismaClient: any) {
@@ -123,6 +128,9 @@ export async function GET(request: Request) {
             },
           },
           transferToAccount: true,
+          subAccount: true,
+          linkedTransaction: { select: { id: true, amount: true, type: true, description: true } },
+          linkedBy: { select: { id: true, amount: true, type: true, description: true } },
           attachments: true,
           tags: {
             include: {
@@ -143,6 +151,7 @@ export async function GET(request: Request) {
       account: { ...tx.account, balance: Number(tx.account.balance) },
       category: tx.category ? { ...tx.category, budgetAmount: tx.category.budgetAmount ? Number(tx.category.budgetAmount) : null } : null,
       transferToAccount: tx.transferToAccount ? { ...tx.transferToAccount, balance: Number(tx.transferToAccount.balance) } : null,
+      subAccount: tx.subAccount ? { ...tx.subAccount, balance: Number(tx.subAccount.balance) } : null,
       tags: tx.tags?.map((tt: any) => tt.tag) || [],
     }));
 
@@ -249,6 +258,7 @@ export async function POST(request: Request) {
           personId: validated.personId || null,
           splitCount: validated.splitCount || null,
           splitType: validated.splitType || null,
+          subAccountId: validated.subAccountId || null,
           userId: session.user.id,
         },
       });
@@ -356,6 +366,59 @@ export async function POST(request: Request) {
             tagId,
           })),
           skipDuplicates: true,
+        });
+      }
+      // 6. Handle wallet sub-account top-up flow
+      console.log('[TX] subAccountId:', validated.subAccountId, 'topUp:', validated.topUp ? JSON.stringify(validated.topUp) : 'null');
+      if (validated.topUp && validated.subAccountId) {
+        const topUp = validated.topUp;
+
+        // Create a linked TRANSFER transaction from source bank → wallet account
+        const transferTx = await tx.transaction.create({
+          data: {
+            amount: topUp.amount,
+            type: 'TRANSFER',
+            date: validated.date,
+            description: `Top-up: ${validated.description}`,
+            merchant: validated.merchant,
+            notes: `Auto-created top-up for wallet sub-account`,
+            accountId: topUp.sourceAccountId,
+            transferToAccountId: validated.accountId,
+            linkedTransactionId: createdTx.id,
+            userId: session.user.id,
+          },
+        });
+
+        // Deduct from source bank
+        await tx.account.update({
+          where: { id: topUp.sourceAccountId },
+          data: { balance: { decrement: topUp.amount } },
+        });
+
+        // Increment wallet account (the top-up portion)
+        await tx.account.update({
+          where: { id: validated.accountId },
+          data: { balance: { increment: topUp.amount } },
+        });
+
+        // Update sub-account balance: +topUp - charge
+        await tx.subAccount.update({
+          where: { id: validated.subAccountId },
+          data: { balance: { increment: topUp.amount - validated.amount } },
+        });
+
+        await syncCreditCardBalances(topUp.sourceAccountId, tx);
+      } else if (validated.subAccountId) {
+        // No top-up, just deduct from sub-account balance
+        await tx.subAccount.update({
+          where: { id: validated.subAccountId },
+          data: {
+            balance: {
+              increment: (validated.type === 'INCOME' || validated.type === 'REFUND') 
+                ? validated.amount 
+                : -validated.amount
+            },
+          },
         });
       }
 

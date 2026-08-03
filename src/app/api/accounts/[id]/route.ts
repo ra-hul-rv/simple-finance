@@ -19,6 +19,7 @@ const updateAccountSchema = z.object({
     'EPF',
     'PPF',
     'NPS',
+    'WALLET',
     'OTHER',
   ]),
   institution: z.string().optional().nullable(),
@@ -53,6 +54,9 @@ export async function GET(
       },
       include: {
         creditCard: true,
+        subAccounts: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -66,6 +70,10 @@ export async function GET(
       openingBalance: Number(account.openingBalance),
       interestRate: account.interestRate ? Number(account.interestRate) : null,
       creditLimit: account.creditLimit ? Number(account.creditLimit) : null,
+      subAccounts: ((account as any).subAccounts || []).map((sa: any) => ({
+        ...sa,
+        balance: Number(sa.balance),
+      })),
     });
   } catch (error) {
     console.error('Failed to get account:', error);

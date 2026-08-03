@@ -510,6 +510,7 @@ export default function UnifiedAccountsPage() {
               <SelectItem value="EPF">EPF (Retirement)</SelectItem>
               <SelectItem value="PPF">PPF Account</SelectItem>
               <SelectItem value="NPS">NPS Account</SelectItem>
+              <SelectItem value="WALLET">Wallet (Sub-Accounts)</SelectItem>
               <SelectItem value="OTHER">Other Assets</SelectItem>
             </SelectContent>
           </Select>
@@ -864,6 +865,7 @@ export default function UnifiedAccountsPage() {
                     <SelectItem value="EPF">EPF (Retirement)</SelectItem>
                     <SelectItem value="PPF">PPF Account</SelectItem>
                     <SelectItem value="NPS">NPS Account</SelectItem>
+                    <SelectItem value="WALLET">Wallet (Sub-Accounts)</SelectItem>
                     <SelectItem value="OTHER">Other Assets</SelectItem>
                   </SelectContent>
                 </Select>

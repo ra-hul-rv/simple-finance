@@ -21,6 +21,7 @@ enum AccountType {
   EPF
   PPF
   NPS
+  WALLET
   OTHER
 }
 
@@ -185,6 +186,7 @@ model Account {
   creditCard            CreditCard?
   lendings              Lending[]
   emis                  Emi[]
+  subAccounts           SubAccount[]
 
   @@index([userId])
   @@index([type])
@@ -226,11 +228,39 @@ model Transaction {
   lending                Lending?              @relation(fields: [lendingId], references: [id], onDelete: SetNull)
   emiPayment             EmiPayment?
 
+  subAccountId           String?
+  subAccount             SubAccount?           @relation(fields: [subAccountId], references: [id], onDelete: SetNull)
+  linkedTransactionId    String?               @unique
+  linkedTransaction      Transaction?          @relation("LinkedTransactions", fields: [linkedTransactionId], references: [id], onDelete: SetNull)
+  linkedBy               Transaction?          @relation("LinkedTransactions")
+
   @@index([userId])
   @@index([accountId])
   @@index([categoryId])
   @@index([date])
   @@index([type])
+  @@index([subAccountId])
+}
+
+model SubAccount {
+  id          String   @id @default(uuid())
+  name        String
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  color       String   @default("#6366f1")
+  icon        String   @default("zap")
+  iconPath    String?  // uploaded icon image path
+  credentials String?  // JSON: { username, password, notes }
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  transactions Transaction[]
+
+  @@index([accountId])
 }
 
 model Category {

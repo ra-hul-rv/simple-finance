@@ -19,6 +19,7 @@ const accountSchema = z.object({
     'EPF',
     'PPF',
     'NPS',
+    'WALLET',
     'OTHER',
   ]),
   institution: z.string().nullish(),
@@ -42,6 +43,21 @@ export async function GET() {
 
     const accounts = await prisma.account.findMany({
       where: { userId: session.user.id },
+      include: {
+        subAccounts: {
+          select: {
+            id: true,
+            name: true,
+            balance: true,
+            color: true,
+            icon: true,
+            iconPath: true,
+            isActive: true,
+            _count: { select: { transactions: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -52,6 +68,11 @@ export async function GET() {
       openingBalance: Number(acc.openingBalance),
       interestRate: acc.interestRate ? Number(acc.interestRate) : null,
       creditLimit: acc.creditLimit ? Number(acc.creditLimit) : null,
+      subAccounts: (acc.subAccounts || []).map((sa: any) => ({
+        ...sa,
+        balance: Number(sa.balance),
+        transactionCount: sa._count?.transactions || 0,
+      })),
     }));
 
     return NextResponse.json(formattedAccounts);
