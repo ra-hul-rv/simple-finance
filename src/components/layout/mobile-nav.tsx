@@ -67,6 +67,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   shopping: ShoppingBag,
   warranties: ShieldCheck,
   coupons: Ticket,
+  templates: FileText,
   automations: Cpu,
   calendar: CalendarIcon,
   analytics: BarChart3,
@@ -88,9 +89,10 @@ const DEFAULT_TITLE_MAP: Record<string, string> = {
   investments: 'Investments',
   lending: 'Lending & Debts',
   shopping: 'Shopping List',
-  warranties: 'Warranties',
-  coupons: 'Coupons Wallet',
+  vault: 'Vault',
+  templates: 'Templates',
   automations: 'Automations',
+  coupons: 'Coupons Wallet',
   calendar: 'Calendar',
   analytics: 'Analytics',
   reports: 'Reports',
@@ -113,7 +115,27 @@ export function MobileNav() {
         try {
           const parsed = JSON.parse(saved) as SidebarLayout;
           if (parsed && parsed.sections) {
+            let migrated = false;
+
+            // Ensure 'templates' exists in layout
+            const hasTemplates = parsed.sections.some(sec => sec.items.some(i => i.id === 'templates'));
+            if (!hasTemplates) {
+              migrated = true;
+              const targetSec = parsed.sections.find(s => s.id === 'finance') || parsed.sections[0];
+              if (targetSec) {
+                const vaultIdx = targetSec.items.findIndex(i => i.id === 'vault');
+                if (vaultIdx !== -1) {
+                  targetSec.items.splice(vaultIdx + 1, 0, { id: 'templates', title: null, isHidden: false });
+                } else {
+                  targetSec.items.push({ id: 'templates', title: null, isHidden: false });
+                }
+              }
+            }
+
             setLayout(parsed);
+            if (migrated) {
+              localStorage.setItem('sf_sidebar_layout', JSON.stringify(parsed));
+            }
           }
         } catch (e) {
           console.error(e);
@@ -167,13 +189,13 @@ export function MobileNav() {
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-72 p-0">
+          <SheetContent side="right" className="w-72 p-0 flex flex-col h-full overflow-hidden">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-            <div className="flex h-14 items-center px-4 border-b border-border">
+            <div className="flex h-14 items-center px-4 border-b border-border shrink-0">
               <span className="text-sm font-semibold">Navigation</span>
             </div>
-            <ScrollArea className="h-[calc(100vh-3.5rem)]">
-              <div className="space-y-6 p-4">
+            <ScrollArea className="flex-1 min-h-0 w-full">
+              <div className="space-y-6 p-4 pb-8">
                 {layout.sections.map((section) => {
                   if (section.isCollapsed || section.items.filter(i => !i.isHidden).length === 0) return null;
                   
@@ -235,7 +257,7 @@ export function MobileNav() {
               </div>
             </ScrollArea>
             {/* Mobile Sheet Profile section */}
-            <div className="absolute bottom-0 left-0 right-0 border-t border-border p-4 bg-background">
+            <div className="shrink-0 border-t border-border p-4 bg-background z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-9 w-9 ring-1 ring-border/20">

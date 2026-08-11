@@ -75,6 +75,7 @@ export const DEFAULT_SIDEBAR_LAYOUT: SidebarLayout = {
         { id: 'lending', title: null, isHidden: false },
         { id: 'shopping', title: null, isHidden: false },
         { id: 'vault', title: null, isHidden: false },
+        { id: 'templates', title: null, isHidden: false },
         { id: 'automations', title: null, isHidden: false },
       ]
     },

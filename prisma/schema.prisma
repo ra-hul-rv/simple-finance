@@ -128,6 +128,7 @@ model User {
   automationRules       AutomationRule[]
   flowTypes             FlowType[]
   templates             TransactionTemplate[]
+  upiTemplates          UpiTemplate[]
   inboxEvents           InboxEvent[]
   people                Person[]
   emis                  Emi[]
@@ -187,6 +188,7 @@ model Account {
   lendings              Lending[]
   emis                  Emi[]
   subAccounts           SubAccount[]
+  upiTemplates          UpiTemplate[]
 
   @@index([userId])
   @@index([type])
@@ -287,6 +289,7 @@ model Category {
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   subscriptions         Subscription[]
+  upiTemplates          UpiTemplate[]
 
   @@index([userId])
   @@index([parentId])
@@ -677,6 +680,36 @@ model TransactionTemplate {
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model UpiTemplate {
+  id            String          @id @default(uuid())
+  title         String
+  upiId         String
+  type          TransactionType @default(EXPENSE)
+  amount        Decimal?        @db.Decimal(15, 2)
+  merchant      String?
+  location      String?
+  description   String?
+  notes         String?
+  accountId     String?
+  categoryId    String?
+
+  autoCreated   Boolean         @default(false)
+  usageCount    Int             @default(0)
+  lastUsedAt    DateTime?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account       Account?        @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  category      Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, upiId])
+  @@index([userId])
+  @@index([upiId])
 }
 
 model InboxEvent {

@@ -11,7 +11,7 @@ import { TemplatesTab } from '@/components/settings/templates-tab';
 import { User, Settings2, Zap, FileSpreadsheet, KeySquare, ChevronRight, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
-type TabId = 'profile' | 'preferences' | 'flow-types' | 'templates' | 'advanced';
+type TabId = 'profile' | 'preferences' | 'flow-types' | 'advanced';
 
 export default function SettingsPage() {
   const { data: session, status } = useSession();
@@ -54,7 +54,6 @@ export default function SettingsPage() {
     { id: 'profile', label: 'Profile & Security', icon: User, desc: 'Manage credentials and data' },
     { id: 'preferences', label: 'Preferences', icon: Settings2, desc: 'Appearance, locale, and layout' },
     { id: 'flow-types', label: 'Flow Types', icon: Zap, desc: 'Custom transaction directions' },
-    { id: 'templates', label: 'Templates', icon: FileSpreadsheet, desc: 'Fast transaction presets' },
     { id: 'advanced', label: 'Advanced', icon: KeySquare, desc: 'Export and API integrations' },
   ] as const;
 
@@ -70,7 +69,7 @@ export default function SettingsPage() {
               {tabs.map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => setActiveTab(tab.id as TabId)}
                   className={`w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 ${
                     activeTab === tab.id
                       ? 'bg-primary/10 text-primary font-semibold'
@@ -81,7 +80,6 @@ export default function SettingsPage() {
                     <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-primary' : 'text-muted-foreground'}`} />
                     <div>
                       <div className="text-sm">{tab.label}</div>
-                      {/* Only show desc on desktop to save space on mobile */}
                       <div className="text-[10px] hidden md:block font-normal opacity-70 mt-0.5">{tab.desc}</div>
                     </div>
                   </div>
@@ -101,7 +99,6 @@ export default function SettingsPage() {
           {activeTab === 'profile' && <ProfileTab session={session} />}
           {activeTab === 'preferences' && <PreferencesTab settings={settings} onUpdate={fetchSettings} />}
           {activeTab === 'flow-types' && <FlowTypesTab />}
-          {activeTab === 'templates' && <TemplatesTab />}
           {activeTab === 'advanced' && <AdvancedTab settings={settings} onUpdate={fetchSettings} />}
         </main>
       </div>

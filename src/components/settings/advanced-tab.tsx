@@ -97,11 +97,11 @@ export function AdvancedTab({ settings, onUpdate }: { settings: any, onUpdate: (
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Webhook className="h-5 w-5 text-amber-500" />
-            n8n Webhook Integration
+            n8n Webhook & API Integration
           </CardTitle>
-          <CardDescription>Configure token for automated transaction ingestion via n8n</CardDescription>
+          <CardDescription>Configure webhook token and copy API endpoints for n8n SMS automations</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label>Webhook Auth Token</Label>
             <div className="flex gap-2">
@@ -111,7 +111,7 @@ export function AdvancedTab({ settings, onUpdate }: { settings: any, onUpdate: (
                   value={webhookToken} 
                   onChange={e => setWebhookToken(e.target.value)}
                   placeholder="Paste or generate a secure token..."
-                  className="pl-9 bg-background/50 font-mono"
+                  className="pl-9 bg-background/50 font-mono text-xs"
                 />
               </div>
               <Button variant="outline" onClick={generateToken} title="Generate new secure token">
@@ -121,9 +121,93 @@ export function AdvancedTab({ settings, onUpdate }: { settings: any, onUpdate: (
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Use this token in your n8n workflows to authenticate requests to the Simple Finance API.
+            <p className="text-xs text-muted-foreground mt-1">
+              Use this token in the <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px]">Authorization: Bearer &lt;TOKEN&gt;</code> header of your n8n HTTP Request node.
             </p>
+          </div>
+
+          <div className="space-y-3 pt-2 border-t border-border/30">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Generated n8n API Webhook URLs</h4>
+
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-background/40 border border-border/40 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">1. n8n SMS Ingest Webhook</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">POST</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/n8n` : '/api/webhooks/n8n'}
+                    className="h-8 font-mono text-xs bg-background/60"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => {
+                      const url = typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/n8n` : '/api/webhooks/n8n';
+                      navigator.clipboard.writeText(url);
+                      toast.success('Copied n8n webhook URL to clipboard');
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-background/40 border border-border/40 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">2. UPI Template Auto-Match & Capture Endpoint</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">POST</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/api/upi-templates/lookup` : '/api/upi-templates/lookup'}
+                    className="h-8 font-mono text-xs bg-background/60"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => {
+                      const url = typeof window !== 'undefined' ? `${window.location.origin}/api/upi-templates/lookup` : '/api/upi-templates/lookup';
+                      navigator.clipboard.writeText(url);
+                      toast.success('Copied UPI lookup URL to clipboard');
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-background/40 border border-border/40 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">3. UPI Templates List / Create Endpoint</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">GET / POST</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/api/upi-templates` : '/api/upi-templates'}
+                    className="h-8 font-mono text-xs bg-background/60"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => {
+                      const url = typeof window !== 'undefined' ? `${window.location.origin}/api/upi-templates` : '/api/upi-templates';
+                      navigator.clipboard.writeText(url);
+                      toast.success('Copied UPI templates API URL to clipboard');
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

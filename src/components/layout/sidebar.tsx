@@ -57,6 +57,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   lending: ArrowLeftRight,
   shopping: ShoppingBag,
   vault: Vault,
+  templates: FileText,
   automations: Cpu,
   calendar: CalendarIcon,
   analytics: BarChart3,
@@ -79,6 +80,7 @@ const DEFAULT_TITLE_MAP: Record<string, string> = {
   lending: 'Lending & Debts',
   shopping: 'Shopping List',
   vault: 'Vault',
+  templates: 'Templates',
   automations: 'Automations',
   calendar: 'Calendar',
   analytics: 'Analytics',
@@ -107,7 +109,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         try {
           const parsed = JSON.parse(saved) as SidebarLayout;
           if (parsed && parsed.sections) {
-            // Auto-migrate legacy items (coupons/warranties) to vault
+            // Auto-migrate legacy items (coupons/warranties) to vault and add templates if missing
             let migrated = false;
             parsed.sections.forEach(sec => {
               const hasCoupons = sec.items.some(i => i.id === 'coupons');
@@ -123,6 +125,21 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 }
               }
             });
+
+            // Ensure 'templates' exists in layout
+            const hasTemplates = parsed.sections.some(sec => sec.items.some(i => i.id === 'templates'));
+            if (!hasTemplates) {
+              migrated = true;
+              const targetSec = parsed.sections.find(s => s.id === 'finance') || parsed.sections[0];
+              if (targetSec) {
+                const vaultIdx = targetSec.items.findIndex(i => i.id === 'vault');
+                if (vaultIdx !== -1) {
+                  targetSec.items.splice(vaultIdx + 1, 0, { id: 'templates', title: null, isHidden: false });
+                } else {
+                  targetSec.items.push({ id: 'templates', title: null, isHidden: false });
+                }
+              }
+            }
             
             setLayout(parsed);
             if (migrated) {
