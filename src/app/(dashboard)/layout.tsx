@@ -22,7 +22,7 @@ export default function DashboardLayout({
       <div
         className={cn(
           "flex flex-col min-h-screen transition-all duration-300 ease-in-out",
-          collapsed ? "lg:pl-[68px]" : "lg:pl-[260px]"
+          collapsed ? "lg:pl-[96px]" : "lg:pl-[308px]"
         )}
       >
         {/* Top Navbar */}
@@ -32,7 +32,7 @@ export default function DashboardLayout({
         <MobileNav />
 
         {/* Content area */}
-        <main className="flex-grow p-4 md:p-6 pb-24 md:pb-6 gradient-mesh max-w-[1600px] mx-auto w-full">
+        <main className="flex-grow p-4 md:p-6 pb-24 md:pb-6 max-w-[1600px] mx-auto w-full">
           {children}
         </main>
       </div>

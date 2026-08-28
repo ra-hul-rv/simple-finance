@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { AppLogo } from '@/components/shared/app-logo';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -19,7 +20,6 @@ import {
   DollarSign,
   Receipt,
   Landmark,
-  Sparkles,
   ArrowDownRight,
   ArrowUpRight,
   ShoppingBag,
@@ -178,10 +178,7 @@ export function MobileNav() {
       {/* Top bar with menu */}
       <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl lg:hidden">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg gradient-primary">
-            <Sparkles className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-base font-bold">Simple Finance</span>
+          <AppLogo size="sm" showText />
         </Link>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger>
@@ -201,7 +198,7 @@ export function MobileNav() {
                   
                   return (
                     <div key={section.id}>
-                      <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         {section.title || section.id}
                       </p>
                       <div className="space-y-0.5">
@@ -217,10 +214,10 @@ export function MobileNav() {
                               href={href}
                               onClick={() => setOpen(false)}
                               className={cn(
-                                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors',
+                                'flex items-center gap-2.5 rounded-lg px-3 py-[11px] text-base font-medium transition-colors hover:text-primary',
                                 isActive
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                  ? 'text-primary font-semibold'
+                                  : 'text-muted-foreground hover:text-foreground'
                               )}
                             >
                               <Icon className="h-[1.125rem] w-[1.125rem]" />
@@ -234,7 +231,7 @@ export function MobileNav() {
                   );
                 })}
                 <div>
-                  <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     System
                   </p>
                   <div className="space-y-0.5">
@@ -242,10 +239,10 @@ export function MobileNav() {
                       href="/settings"
                       onClick={() => setOpen(false)}
                       className={cn(
-                        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-colors',
+                        'flex items-center gap-2.5 rounded-lg px-3 py-[11px] text-base font-medium transition-colors hover:text-primary',
                         pathname.startsWith('/settings')
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          ? 'text-primary font-semibold'
+                          : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
                       <Settings className="h-[1.125rem] w-[1.125rem]" />
@@ -304,7 +301,10 @@ export function MobileNav() {
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
-                <Icon className={cn('h-5 w-5', isActive && 'text-primary')} />
+                <div className="relative">
+                  <Icon className={cn('h-5 w-5', isActive && 'text-primary')} />
+                  {isActive && <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />}
+                </div>
                 <span>{item.title}</span>
               </Link>
             );

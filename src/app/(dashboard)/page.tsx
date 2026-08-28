@@ -252,13 +252,13 @@ export default async function DashboardPage() {
       >
         <div className="flex items-center gap-2">
           <Link href="/transactions?type=EXPENSE">
-            <Button size="sm" variant="outline" className="h-8 gap-1 hover:border-primary/50">
+            <Button size="sm" variant="outline" className="gap-1">
               <ArrowDownRight className="h-4 w-4 text-destructive" />
               Add Expense
             </Button>
           </Link>
           <Link href="/transactions?type=INCOME">
-            <Button size="sm" className="h-8 gap-1 gradient-primary shadow-sm hover:opacity-90">
+            <Button size="sm" className="gap-1 shadow-sm">
               <ArrowUpRight className="h-4 w-4 text-white" />
               Add Income
             </Button>
@@ -275,7 +275,6 @@ export default async function DashboardPage() {
           trend={4.2}
           trendLabel="from last month"
           icon={<TrendingUp className="h-5 w-5 text-primary" />}
-          variant="glass"
         />
         <StatCard
           title="Monthly Income"

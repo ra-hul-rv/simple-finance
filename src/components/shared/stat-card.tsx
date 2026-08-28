@@ -62,8 +62,9 @@ export function StatCard({
       <Card
         className={cn(
           'relative overflow-hidden transition-all duration-200 card-hover',
-          variant === 'glass' && 'glass',
-          variant === 'gradient' && gradientClass,
+          variant === 'default' && 'border border-border',
+          variant === 'glass' && 'border border-border',
+          variant === 'gradient' && [gradientClass],
           className
         )}
         style={style}
@@ -126,8 +127,8 @@ export function StatCard({
               <div className={cn(
                 'flex h-10 w-10 items-center justify-center rounded-xl',
                 variant === 'gradient'
-                  ? 'bg-white/20'
-                  : 'bg-primary/10'
+                  ? 'bg-white/20 backdrop-blur-sm'
+                  : 'bg-primary/8 backdrop-blur-sm'
               )}>
                 {icon}
               </div>

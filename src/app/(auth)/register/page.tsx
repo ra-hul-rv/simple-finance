@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { AppLogo } from '@/components/shared/app-logo';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
-import { Sparkles, Eye, EyeOff, Loader2, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -111,10 +112,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="glass relative overflow-hidden border-border bg-card/60 backdrop-blur-xl animate-fade-up">
+    <Card className="glass-luminous relative overflow-hidden border-border bg-card/60 backdrop-blur-xl animate-fade-up">
       <CardHeader className="space-y-2 text-center pb-6">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl gradient-primary animate-glow">
-          <Sparkles className="h-5 w-5 text-white" />
+        <div className="mx-auto animate-glow rounded-xl">
+          <AppLogo size="lg" />
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">Create your account</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">

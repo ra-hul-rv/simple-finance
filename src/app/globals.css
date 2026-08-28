@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Urbanist:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -8,9 +8,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Urbanist', ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -61,113 +62,131 @@
   --color-expense: var(--expense);
 }
 
-/* ===== LIGHT MODE — Clean, minimal, premium ===== */
+/* ===== LIGHT MODE — Bankco Clean ===== */
 :root {
-  --background: oklch(0.98 0.003 75);
-  --foreground: oklch(0.15 0.02 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.02 60);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.02 60);
-  --primary: oklch(0.65 0.18 55);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.955 0.01 75);
-  --secondary-foreground: oklch(0.3 0.02 60);
-  --muted: oklch(0.955 0.01 75);
-  --muted-foreground: oklch(0.5 0.02 60);
-  --accent: oklch(0.955 0.015 55);
-  --accent-foreground: oklch(0.3 0.02 60);
-  --destructive: oklch(0.55 0.24 27);
-  --border: oklch(0.91 0.008 75);
-  --input: oklch(0.91 0.008 75);
-  --ring: oklch(0.65 0.18 55);
+  --background: #FAFAFA;
+  --foreground: #1A202C;
+  --card: #FFFFFF;
+  --card-foreground: #1A202C;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A202C;
+  --primary: #22C55E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F7FAFC;
+  --secondary-foreground: #1A202C;
+  --muted: #EDF2F7;
+  --muted-foreground: #718096;
+  --accent: #D9FBE6;
+  --accent-foreground: #1A202C;
+  --destructive: #DD3333;
+  --border: #E2E8F0;
+  --input: #EDF2F7;
+  --ring: #22C55E;
 
   /* Chart palette */
-  --chart-1: oklch(0.65 0.18 55);
-  --chart-2: oklch(0.6 0.2 145);
-  --chart-3: oklch(0.55 0.22 264);
-  --chart-4: oklch(0.6 0.2 310);
-  --chart-5: oklch(0.65 0.18 200);
+  --chart-1: #22C55E;
+  --chart-2: #3B82F6;
+  --chart-3: #8B5CF6;
+  --chart-4: #F43F5E;
+  --chart-5: #06B6D4;
 
   /* Semantic finance colors */
-  --success: oklch(0.6 0.19 145);
-  --success-foreground: oklch(0.98 0 0);
-  --warning: oklch(0.72 0.18 75);
-  --warning-foreground: oklch(0.2 0.05 75);
-  --info: oklch(0.6 0.18 230);
-  --info-foreground: oklch(0.98 0 0);
-  --income: oklch(0.6 0.19 145);
-  --expense: oklch(0.55 0.24 27);
-  --glass: oklch(1 0 0 / 80%);
-  --glass-border: oklch(0.9 0.01 75 / 60%);
+  --success: #22C55E;
+  --success-foreground: #FFFFFF;
+  --warning: #EAB308;
+  --warning-foreground: #FFFFFF;
+  --info: #3B82F6;
+  --info-foreground: #FFFFFF;
+  --income: #22C55E;
+  --expense: #DD3333;
+  --glass: #FFFFFFCC;
+  --glass-border: #E2E8F099;
+
+  /* Gradient endpoints */
+  --gradient-from: #22C55E;
+  --gradient-to: #16A34A;
+
+  /* Shadows */
+  --shadow-color: rgba(34, 197, 94, 0.08);
+  --glow-color: rgba(34, 197, 94, 0.12);
 
   --radius: 0.75rem;
 
   /* Sidebar */
-  --sidebar: oklch(0.97 0.005 75);
-  --sidebar-foreground: oklch(0.3 0.02 60);
-  --sidebar-primary: oklch(0.65 0.18 55);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.015 55);
-  --sidebar-accent-foreground: oklch(0.3 0.02 60);
-  --sidebar-border: oklch(0.91 0.008 75);
-  --sidebar-ring: oklch(0.65 0.18 55);
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A202C;
+  --sidebar-primary: #22C55E;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #D9FBE6;
+  --sidebar-accent-foreground: #1A202C;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #22C55E;
 }
 
-/* ===== DARK MODE — Selvault-inspired deep dark with amber accents ===== */
+/* ===== DARK MODE — Bankco Dark ===== */
 .dark {
-  --background: oklch(0.1 0.01 60);
-  --foreground: oklch(0.92 0.008 75);
-  --card: oklch(0.14 0.012 60);
-  --card-foreground: oklch(0.92 0.008 75);
-  --popover: oklch(0.14 0.012 60);
-  --popover-foreground: oklch(0.92 0.008 75);
-  --primary: oklch(0.72 0.17 55);
-  --primary-foreground: oklch(0.1 0.01 60);
-  --secondary: oklch(0.19 0.012 60);
-  --secondary-foreground: oklch(0.88 0.008 75);
-  --muted: oklch(0.19 0.012 60);
-  --muted-foreground: oklch(0.58 0.02 60);
-  --accent: oklch(0.19 0.018 55);
-  --accent-foreground: oklch(0.88 0.008 75);
-  --destructive: oklch(0.6 0.2 25);
-  --border: oklch(0.22 0.012 60);
-  --input: oklch(0.22 0.012 60);
-  --ring: oklch(0.72 0.17 55);
+  --background: #151515;
+  --foreground: #FFFFFF;
+  --card: #1D1E24;
+  --card-foreground: #FFFFFF;
+  --popover: #23262B;
+  --popover-foreground: #FFFFFF;
+  --primary: #22C55E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #23262B;
+  --secondary-foreground: #FFFFFF;
+  --muted: #23262B;
+  --muted-foreground: #A0AEC0;
+  --accent: #2A313C;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF4747;
+  --border: #2A313C;
+  --input: #2A313C;
+  --ring: #22C55E;
 
-  /* Chart palette — vibrant on dark */
-  --chart-1: oklch(0.72 0.17 55);
-  --chart-2: oklch(0.7 0.18 145);
-  --chart-3: oklch(0.65 0.2 264);
-  --chart-4: oklch(0.68 0.18 310);
-  --chart-5: oklch(0.7 0.17 200);
+  /* Chart palette */
+  --chart-1: #22C55E;
+  --chart-2: #60A5FA;
+  --chart-3: #A78BFA;
+  --chart-4: #FB7185;
+  --chart-5: #22D3EE;
 
   /* Semantic finance colors */
-  --success: oklch(0.7 0.18 145);
-  --success-foreground: oklch(0.1 0.02 145);
-  --warning: oklch(0.78 0.15 75);
-  --warning-foreground: oklch(0.2 0.05 75);
-  --info: oklch(0.68 0.15 230);
-  --info-foreground: oklch(0.1 0.02 230);
-  --income: oklch(0.7 0.18 145);
-  --expense: oklch(0.6 0.2 25);
-  --glass: oklch(0.14 0.012 60 / 75%);
-  --glass-border: oklch(0.25 0.015 55 / 50%);
+  --success: #22C55E;
+  --success-foreground: #151515;
+  --warning: #FDE047;
+  --warning-foreground: #151515;
+  --info: #60A5FA;
+  --info-foreground: #151515;
+  --income: #22C55E;
+  --expense: #FF4747;
 
-  /* Sidebar — deep dark with subtle amber tint */
-  --sidebar: oklch(0.11 0.012 60);
-  --sidebar-foreground: oklch(0.85 0.008 75);
-  --sidebar-primary: oklch(0.72 0.17 55);
-  --sidebar-primary-foreground: oklch(0.1 0.01 60);
-  --sidebar-accent: oklch(0.18 0.018 55);
-  --sidebar-accent-foreground: oklch(0.88 0.008 75);
-  --sidebar-border: oklch(0.2 0.012 60);
-  --sidebar-ring: oklch(0.72 0.17 55);
+  /* Glass — cleaner for Bankco */
+  --glass: #1D1E24CC;
+  --glass-border: #2A313C99;
+
+  /* Gradient endpoints */
+  --gradient-from: #22C55E;
+  --gradient-to: #16A34A;
+
+  /* Shadows */
+  --shadow-color: rgba(0, 0, 0, 0.50);
+  --glow-color: rgba(34, 197, 94, 0.15);
+
+  /* Sidebar */
+  --sidebar: #1D1E24;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #22C55E;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #2A313C;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #2A313C;
+  --sidebar-ring: #22C55E;
 }
 
 /* ===== EMERALD LIGHT ===== */
 [data-color-theme="emerald"] {
-  --background: #fafafa;
+  --background: #f9fafb;
   --foreground: #1a202c;
   --card: #ffffff;
   --card-foreground: #1a202c;
@@ -181,7 +200,7 @@
   --muted-foreground: #708196;
   --accent: #dafbe5;
   --accent-foreground: #1a202c;
-  --destructive: #ff4747;
+  --destructive: #ef4444;
   --border: #e2e8f0;
   --input: #edf2f7;
   --ring: #22c55e;
@@ -201,12 +220,20 @@
   --info: #3b82f6;
   --info-foreground: #ffffff;
   --income: #22c55e;
-  --expense: #ff4747;
+  --expense: #ef4444;
   --glass: #ffffffcc;
-  --glass-border: #e2e8f0;
+  --glass-border: #e2e8f099;
+
+  /* Gradient endpoints */
+  --gradient-from: #22c55e;
+  --gradient-to: #16a34a;
+
+  /* Shadows */
+  --shadow-color: #22c55e1f;
+  --glow-color: #22c55e33;
 
   /* Sidebar */
-  --sidebar: #fafafa;
+  --sidebar: #f9fafb;
   --sidebar-foreground: #1a202c;
   --sidebar-primary: #22c55e;
   --sidebar-primary-foreground: #ffffff;
@@ -218,58 +245,66 @@
 
 /* ===== EMERALD DARK ===== */
 .dark[data-color-theme="emerald"] {
-  --background: #24262c;
-  --foreground: #ffffff;
-  --card: #1e1e24;
-  --card-foreground: #ffffff;
-  --popover: #1e1e24;
-  --popover-foreground: #ffffff;
-  --primary: #22c55e;
-  --primary-foreground: #ffffff;
-  --secondary: #d4f2dc;
-  --secondary-foreground: #1a202c;
-  --muted: #29313c;
-  --muted-foreground: #a1afc0;
-  --accent: #dafbe5;
-  --accent-foreground: #1a202c;
-  --destructive: #ff4747;
-  --border: #29313c;
-  --input: #29313c;
-  --ring: #3b82f680;
+  --background: #080b10;
+  --foreground: #f0f2f5;
+  --card: #0f1218;
+  --card-foreground: #f0f2f5;
+  --popover: #141820;
+  --popover-foreground: #f0f2f5;
+  --primary: #34d674;
+  --primary-foreground: #080b10;
+  --secondary: #121820;
+  --secondary-foreground: #e2e8f0;
+  --muted: #121820;
+  --muted-foreground: #6b7d8e;
+  --accent: #121a22;
+  --accent-foreground: #e2e8f0;
+  --destructive: #f87171;
+  --border: #1a2230;
+  --input: #1a2230;
+  --ring: #34d674;
 
   /* Chart palette */
-  --chart-1: #49de80;
-  --chart-2: #3b82f6;
-  --chart-3: #8b5cf6;
-  --chart-4: #f43f5e;
-  --chart-5: #06b6d4;
+  --chart-1: #34d674;
+  --chart-2: #60a5fa;
+  --chart-3: #a78bfa;
+  --chart-4: #fb7185;
+  --chart-5: #22d3ee;
 
   /* Semantic finance colors */
-  --success: #22c55e;
-  --success-foreground: #ffffff;
-  --warning: #eab304;
-  --warning-foreground: #ffffff;
-  --info: #3b82f6;
-  --info-foreground: #ffffff;
-  --income: #49de80;
-  --expense: #ff4747;
-  --glass: #1e1e24cc;
-  --glass-border: #29313c;
+  --success: #34d674;
+  --success-foreground: #080b10;
+  --warning: #fbbf24;
+  --warning-foreground: #080b10;
+  --info: #60a5fa;
+  --info-foreground: #080b10;
+  --income: #34d674;
+  --expense: #f87171;
+  --glass: #0f1218a6;
+  --glass-border: #1a223066;
+
+  /* Gradient endpoints */
+  --gradient-from: #34d674;
+  --gradient-to: #22c55e;
+
+  /* Shadows */
+  --shadow-color: #00000080;
+  --glow-color: #34d67433;
 
   /* Sidebar */
-  --sidebar: #24262c;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #22c55e;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #dafbe5;
-  --sidebar-accent-foreground: #1a202c;
-  --sidebar-border: #29313c;
-  --sidebar-ring: #3b82f680;
+  --sidebar: #0a0e14;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #34d674;
+  --sidebar-primary-foreground: #080b10;
+  --sidebar-accent: #121a22;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: #1a2230;
+  --sidebar-ring: #34d674;
 }
 
 /* ===== MINT LEAF LIGHT ===== */
 [data-color-theme="mint-leaf"] {
-  --background: #fdfdfd;
+  --background: #fcfdfc;
   --foreground: #102317;
   --card: #ffffff;
   --card-foreground: #102317;
@@ -283,7 +318,7 @@
   --muted-foreground: #408c5b;
   --accent: #dcefe3;
   --accent-foreground: #102317;
-  --destructive: #ff4747;
+  --destructive: #ef4444;
   --border: #b9dfc6;
   --input: #eef7f1;
   --ring: #50af71;
@@ -303,12 +338,20 @@
   --info: #3b82f6;
   --info-foreground: #ffffff;
   --income: #50af71;
-  --expense: #ff4747;
+  --expense: #ef4444;
   --glass: #ffffffcc;
-  --glass-border: #b9dfc6;
+  --glass-border: #b9dfc699;
+
+  /* Gradient endpoints */
+  --gradient-from: #50af71;
+  --gradient-to: #3d9960;
+
+  /* Shadows */
+  --shadow-color: #50af711f;
+  --glow-color: #50af7133;
 
   /* Sidebar */
-  --sidebar: #fdfdfd;
+  --sidebar: #fcfdfc;
   --sidebar-foreground: #102317;
   --sidebar-primary: #50af71;
   --sidebar-primary-foreground: #ffffff;
@@ -320,58 +363,66 @@
 
 /* ===== MINT LEAF DARK ===== */
 .dark[data-color-theme="mint-leaf"] {
-  --background: #0b1810;
+  --background: #050a07;
   --foreground: #eef7f1;
-  --card: #102317;
+  --card: #091410;
   --card-foreground: #eef7f1;
-  --popover: #102317;
+  --popover: #0c1812;
   --popover-foreground: #eef7f1;
-  --primary: #50af71;
-  --primary-foreground: #ffffff;
-  --secondary: #306944;
+  --primary: #5cbe80;
+  --primary-foreground: #050a07;
+  --secondary: #102818;
   --secondary-foreground: #dcefe3;
-  --muted: #20462d;
-  --muted-foreground: #96cfaa;
-  --accent: #306944;
+  --muted: #102818;
+  --muted-foreground: #5f9a78;
+  --accent: #112a1a;
   --accent-foreground: #eef7f1;
-  --destructive: #ff4747;
-  --border: #20462d;
-  --input: #20462d;
-  --ring: #50af71;
+  --destructive: #f87171;
+  --border: #153224;
+  --input: #153224;
+  --ring: #5cbe80;
 
   /* Chart palette */
-  --chart-1: #50af71;
+  --chart-1: #5cbe80;
   --chart-2: #73bf8e;
   --chart-3: #96cfaa;
   --chart-4: #b9dfc6;
   --chart-5: #408c5b;
 
   /* Semantic finance colors */
-  --success: #50af71;
-  --success-foreground: #ffffff;
-  --warning: #eab304;
-  --warning-foreground: #ffffff;
-  --info: #3b82f6;
-  --info-foreground: #ffffff;
-  --income: #50af71;
-  --expense: #ff4747;
-  --glass: #102317cc;
-  --glass-border: #20462d;
+  --success: #5cbe80;
+  --success-foreground: #050a07;
+  --warning: #fbbf24;
+  --warning-foreground: #050a07;
+  --info: #60a5fa;
+  --info-foreground: #050a07;
+  --income: #5cbe80;
+  --expense: #f87171;
+  --glass: #091410a6;
+  --glass-border: #15322466;
+
+  /* Gradient endpoints */
+  --gradient-from: #5cbe80;
+  --gradient-to: #50af71;
+
+  /* Shadows */
+  --shadow-color: #00000080;
+  --glow-color: #5cbe8033;
 
   /* Sidebar */
-  --sidebar: #0b1810;
+  --sidebar: #060c08;
   --sidebar-foreground: #eef7f1;
-  --sidebar-primary: #50af71;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #306944;
+  --sidebar-primary: #5cbe80;
+  --sidebar-primary-foreground: #050a07;
+  --sidebar-accent: #112a1a;
   --sidebar-accent-foreground: #eef7f1;
-  --sidebar-border: #20462d;
-  --sidebar-ring: #50af71;
+  --sidebar-border: #153224;
+  --sidebar-ring: #5cbe80;
 }
 
 /* ===== AMETHYST SMOKE LIGHT ===== */
 [data-color-theme="amethyst-smoke"] {
-  --background: #fdfdfd;
+  --background: #fcfcfd;
   --foreground: #211122;
   --card: #ffffff;
   --card-foreground: #211122;
@@ -385,7 +436,7 @@
   --muted-foreground: #84428a;
   --accent: #edddee;
   --accent-foreground: #211122;
-  --destructive: #ff4747;
+  --destructive: #ef4444;
   --border: #dbbade;
   --input: #f6eef7;
   --ring: #a553ac;
@@ -405,12 +456,20 @@
   --info: #3b82f6;
   --info-foreground: #ffffff;
   --income: #a553ac;
-  --expense: #ff4747;
+  --expense: #ef4444;
   --glass: #ffffffcc;
-  --glass-border: #dbbade;
+  --glass-border: #dbbade99;
+
+  /* Gradient endpoints */
+  --gradient-from: #a553ac;
+  --gradient-to: #8b3a92;
+
+  /* Shadows */
+  --shadow-color: #a553ac1f;
+  --glow-color: #a553ac33;
 
   /* Sidebar */
-  --sidebar: #fdfdfd;
+  --sidebar: #fcfcfd;
   --sidebar-foreground: #211122;
   --sidebar-primary: #a553ac;
   --sidebar-primary-foreground: #ffffff;
@@ -422,53 +481,61 @@
 
 /* ===== AMETHYST SMOKE DARK ===== */
 .dark[data-color-theme="amethyst-smoke"] {
-  --background: #170c18;
+  --background: #0a060b;
   --foreground: #f6eef7;
-  --card: #211122;
+  --card: #120a14;
   --card-foreground: #f6eef7;
-  --popover: #211122;
+  --popover: #160e18;
   --popover-foreground: #f6eef7;
-  --primary: #a553ac;
-  --primary-foreground: #ffffff;
-  --secondary: #633267;
+  --primary: #b86cc0;
+  --primary-foreground: #0a060b;
+  --secondary: #1e1022;
   --secondary-foreground: #edddee;
-  --muted: #422145;
-  --muted-foreground: #c998cd;
-  --accent: #633267;
+  --muted: #1e1022;
+  --muted-foreground: #8a6890;
+  --accent: #201224;
   --accent-foreground: #f6eef7;
-  --destructive: #ff4747;
-  --border: #422145;
-  --input: #422145;
-  --ring: #a553ac;
+  --destructive: #f87171;
+  --border: #2a1830;
+  --input: #2a1830;
+  --ring: #b86cc0;
 
   /* Chart palette */
-  --chart-1: #a553ac;
-  --chart-2: #b775bd;
-  --chart-3: #c998cd;
+  --chart-1: #b86cc0;
+  --chart-2: #c88dd0;
+  --chart-3: #d5aada;
   --chart-4: #dbbade;
-  --chart-5: #84428a;
+  --chart-5: #9444a0;
 
   /* Semantic finance colors */
   --success: #22c55e;
   --success-foreground: #ffffff;
-  --warning: #eab304;
-  --warning-foreground: #ffffff;
-  --info: #3b82f6;
-  --info-foreground: #ffffff;
-  --income: #a553ac;
-  --expense: #ff4747;
-  --glass: #211122cc;
-  --glass-border: #422145;
+  --warning: #fbbf24;
+  --warning-foreground: #0a060b;
+  --info: #60a5fa;
+  --info-foreground: #0a060b;
+  --income: #b86cc0;
+  --expense: #f87171;
+  --glass: #120a14a6;
+  --glass-border: #2a183066;
+
+  /* Gradient endpoints */
+  --gradient-from: #b86cc0;
+  --gradient-to: #a553ac;
+
+  /* Shadows */
+  --shadow-color: #00000080;
+  --glow-color: #b86cc033;
 
   /* Sidebar */
-  --sidebar: #170c18;
+  --sidebar: #0c070d;
   --sidebar-foreground: #f6eef7;
-  --sidebar-primary: #a553ac;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #633267;
+  --sidebar-primary: #b86cc0;
+  --sidebar-primary-foreground: #0a060b;
+  --sidebar-accent: #201224;
   --sidebar-accent-foreground: #f6eef7;
-  --sidebar-border: #422145;
-  --sidebar-ring: #a553ac;
+  --sidebar-border: #2a1830;
+  --sidebar-ring: #b86cc0;
 }
 
 @layer base {
@@ -490,89 +557,124 @@
 }
 
 @layer utilities {
-  /* Glassmorphism */
+  /* ===== Glassmorphism ===== */
   .glass {
     background: var(--glass);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 6%);
   }
 
   .glass-strong {
     background: var(--glass);
-    backdrop-filter: blur(32px);
-    -webkit-backdrop-filter: blur(32px);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
     border: 1px solid var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 8%),
+      0 0 0 1px oklch(1 0 0 / 3%);
   }
 
-  /* Gradient backgrounds */
+  .glass-luminous {
+    background: var(--glass);
+    backdrop-filter: blur(32px) saturate(1.8);
+    -webkit-backdrop-filter: blur(32px) saturate(1.8);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 10%),
+      inset 0 -1px 0 0 oklch(0 0 0 / 5%),
+      0 0 40px -12px var(--glow-color);
+  }
+
+  /* ===== Gradient backgrounds ===== */
   .gradient-primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary));
-    opacity: 0.9;
+    background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to));
   }
   .gradient-primary:hover {
-    opacity: 1;
+    background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to));
+    filter: brightness(1.08);
   }
 
   .gradient-success {
-    background: linear-gradient(135deg, var(--success), var(--success));
-    opacity: 0.9;
+    background: linear-gradient(135deg, var(--success), color-mix(in oklch, var(--success), oklch(0.3 0.1 145) 25%));
   }
   .gradient-success:hover {
-    opacity: 1;
+    filter: brightness(1.08);
   }
 
   .gradient-danger {
-    background: linear-gradient(135deg, var(--destructive), var(--destructive));
-    opacity: 0.9;
+    background: linear-gradient(135deg, var(--destructive), color-mix(in oklch, var(--destructive), oklch(0.4 0.2 10) 25%));
   }
   .gradient-danger:hover {
-    opacity: 1;
+    filter: brightness(1.08);
   }
 
   .gradient-warning {
-    background: linear-gradient(135deg, var(--warning), var(--warning));
-    opacity: 0.9;
+    background: linear-gradient(135deg, var(--warning), color-mix(in oklch, var(--warning), oklch(0.6 0.2 55) 25%));
   }
   .gradient-warning:hover {
-    opacity: 1;
+    filter: brightness(1.08);
   }
 
   .gradient-info {
-    background: linear-gradient(135deg, var(--info), var(--info));
-    opacity: 0.9;
+    background: linear-gradient(135deg, var(--info), color-mix(in oklch, var(--info), oklch(0.5 0.2 264) 25%));
   }
   .gradient-info:hover {
-    opacity: 1;
+    filter: brightness(1.08);
   }
 
-  /* Mesh gradient background for pages */
+  .gradient-accent {
+    background: linear-gradient(135deg, var(--gradient-from), var(--info));
+  }
+
+  .gradient-subtle {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--gradient-from) 8%, transparent), color-mix(in srgb, var(--gradient-to) 8%, transparent));
+  }
+
+  /* ===== Mesh gradient background for pages (Disabled for clean solid dark theme) ===== */
   .gradient-mesh {
-    background:
-      radial-gradient(at 40% 20%, color-mix(in srgb, var(--primary) 8%, transparent) 0px, transparent 50%),
-      radial-gradient(at 80% 0%, color-mix(in srgb, var(--secondary) 6%, transparent) 0px, transparent 50%),
-      radial-gradient(at 0% 50%, color-mix(in srgb, var(--success) 5%, transparent) 0px, transparent 50%),
-      radial-gradient(at 80% 50%, color-mix(in srgb, var(--info) 4%, transparent) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, color-mix(in srgb, var(--primary) 6%, transparent) 0px, transparent 50%);
+    background: none;
   }
 
-  /* Card hover effect */
+  /* ===== Clean Shadow System (Bankco) ===== */
+  .shadow-premium {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .shadow-premium-lg {
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.06),
+      0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .shadow-inner-glow {
+    box-shadow: none;
+  }
+
+  /* ===== Card hover effect ===== */
   .card-hover {
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .card-hover:hover {
     transform: translateY(-2px);
     box-shadow:
-      0 8px 25px -5px oklch(0 0 0 / 15%),
-      0 4px 10px -6px oklch(0 0 0 / 8%);
+      0 4px 6px -1px rgba(0, 0, 0, 0.08),
+      0 2px 4px -2px rgba(0, 0, 0, 0.06);
   }
 
-  /* Tabular numbers for financial data */
+  /* ===== Tabular numbers for financial data ===== */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Uppercase label style like Selvault */
+  /* ===== Uppercase label style ===== */
   .label-uppercase {
     font-size: 0.6875rem;
     font-weight: 600;
@@ -580,7 +682,7 @@
     letter-spacing: 0.1em;
   }
 
-  /* Scrollbar styling */
+  /* ===== Scrollbar styling ===== */
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -595,9 +697,11 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 3px;
+    transition: background 0.2s;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
+    width: 8px;
   }
 
   .scrollbar-none {
@@ -681,10 +785,26 @@
 
 @keyframes glow {
   0%, 100% {
-    box-shadow: 0 0 5px oklch(0.72 0.17 55 / 20%);
+    box-shadow: 0 0 8px var(--glow-color);
   }
   50% {
-    box-shadow: 0 0 20px oklch(0.72 0.17 55 / 40%);
+    box-shadow: 0 0 24px var(--glow-color), 0 0 48px color-mix(in srgb, var(--glow-color) 40%, transparent);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes border-glow {
+  0%, 100% {
+    border-color: var(--glass-border);
+    box-shadow: 0 0 0 oklch(1 0 0 / 0%);
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--gradient-from) 30%, var(--glass-border));
+    box-shadow: 0 0 12px var(--glow-color);
   }
 }
 
@@ -716,15 +836,21 @@
     animation: count-up 0.5s ease-out;
   }
   .animate-glow {
-    animation: glow 2s ease-in-out infinite;
+    animation: glow 2.5s ease-in-out infinite;
+  }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  .animate-border-glow {
+    animation: border-glow 3s ease-in-out infinite;
   }
 
-  /* Emerald specific hovers */
+  /* Color theme specific hovers */
   .dark[data-color-theme="emerald"] .gradient-primary:hover,
   .dark[data-color-theme="mint-leaf"] .gradient-primary:hover,
   .dark[data-color-theme="amethyst-smoke"] .gradient-primary:hover {
-    background: linear-gradient(135deg, var(--secondary), var(--secondary));
-    color: var(--secondary-foreground);
+    background: linear-gradient(135deg, var(--gradient-from), var(--gradient-to));
+    filter: brightness(1.1);
   }
   .dark[data-color-theme="emerald"] .bg-black,
   .dark[data-color-theme="mint-leaf"] .bg-black,

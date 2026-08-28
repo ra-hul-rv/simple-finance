@@ -13,13 +13,13 @@ export type ColorTheme = {
 export const THEMES: ColorTheme[] = [
   {
     id: 'selvault',
-    name: 'Selvault Amber',
-    description: 'The classic deep dark and amber aesthetic.',
+    name: 'Bankco Green',
+    description: 'Clean green banking theme inspired by Bankco.',
     colors: {
-      primary: 'oklch(0.72 0.17 55)',
-      background: 'oklch(0.1 0.01 60)',
-      card: 'oklch(0.14 0.012 60)',
-      accent: 'oklch(0.18 0.018 55)',
+      primary: '#22C55E',
+      background: '#151515',
+      card: '#1D1E24',
+      accent: '#2A313C',
     },
   },
   {
@@ -27,10 +27,10 @@ export const THEMES: ColorTheme[] = [
     name: 'Emerald Green',
     description: 'A crisp, modern green and dark grey theme.',
     colors: {
-      primary: '#22c55e',
-      background: '#24262c',
-      card: '#1e1e24',
-      accent: '#dafbe5',
+      primary: '#34d674',
+      background: '#080b10',
+      card: '#0f1218',
+      accent: '#121a22',
     },
   },
   {
@@ -38,10 +38,10 @@ export const THEMES: ColorTheme[] = [
     name: 'Mint Leaf',
     description: 'A refreshing light and dark green palette.',
     colors: {
-      primary: '#50af71',
-      background: '#0b1810',
-      card: '#102317',
-      accent: '#306944',
+      primary: '#5cbe80',
+      background: '#050a07',
+      card: '#091410',
+      accent: '#112a1a',
     },
   },
   {
@@ -49,10 +49,10 @@ export const THEMES: ColorTheme[] = [
     name: 'Amethyst Smoke',
     description: 'An elegant violet and purple palette.',
     colors: {
-      primary: '#a553ac',
-      background: '#170c18',
-      card: '#211122',
-      accent: '#633267',
+      primary: '#b86cc0',
+      background: '#0a060b',
+      card: '#120a14',
+      accent: '#201224',
     },
   },
 ];

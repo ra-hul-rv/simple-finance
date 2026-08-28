@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AppLogo } from '@/components/shared/app-logo';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +9,7 @@ import * as z from 'zod';
 import { signIn } from 'next-auth/react';
 import { useState, useTransition, Suspense } from 'react';
 import { toast } from 'sonner';
-import { Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,10 +65,10 @@ function LoginForm() {
   };
 
   return (
-    <Card className="glass relative overflow-hidden border-border bg-card/60 backdrop-blur-xl animate-fade-up">
+    <Card className="relative overflow-hidden border-border bg-card animate-fade-up">
       <CardHeader className="space-y-2 text-center pb-6">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl gradient-primary animate-glow">
-          <Sparkles className="h-5 w-5 text-white" />
+        <div className="mx-auto rounded-xl">
+          <AppLogo size="lg" />
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">Welcome back</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
@@ -82,7 +83,7 @@ function LoginForm() {
               id="email"
               type="email"
               placeholder="name@example.com"
-              className="bg-background/40"
+              className=""
               disabled={isPending}
               {...register('email')}
             />
@@ -105,7 +106,7 @@ function LoginForm() {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
-                className="pr-10 bg-background/40"
+                className="pr-10"
                 disabled={isPending}
                 {...register('password')}
               />
@@ -153,7 +154,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <Card className="glass border-border bg-card/60 backdrop-blur-xl p-6 flex flex-col items-center justify-center min-h-[300px]">
+      <Card className="glass-luminous border-border bg-card/60 backdrop-blur-xl p-6 flex flex-col items-center justify-center min-h-[300px]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-xs text-muted-foreground mt-2">Loading authentication portal...</p>
       </Card>

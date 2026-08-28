@@ -4,7 +4,7 @@ import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
   title: 'Simple Finance — Personal Finance Tracker',
-  description: 'Track your net worth, manage assets, liabilities, transactions, and budgets with a premium dark dashboard.',
+  description: 'A premium personal finance dashboard to track net worth, manage accounts, budgets, and transactions.',
   keywords: ['finance', 'personal finance', 'budget tracker', 'expense manager', 'net worth'],
 };
 

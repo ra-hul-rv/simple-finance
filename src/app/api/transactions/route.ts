@@ -61,10 +61,27 @@ async function syncCreditCardBalances(accountId: string, prismaClient: any) {
   });
 }
 
+async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      const settings = await prisma.userSettings.findFirst({
+        where: { webhookToken: token },
+        select: { userId: true },
+      });
+      if (settings?.userId) return settings.userId;
+    }
+  }
+
+  const session = await auth();
+  return session?.user?.id || null;
+}
+
 export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -87,7 +104,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     const whereClause: any = {
-      userId: session.user.id,
+      userId,
     };
 
     if (type) whereClause.type = type;
@@ -172,8 +189,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -183,7 +200,7 @@ export async function POST(request: Request) {
     // Evaluate TRANSACTION_CREATED active rules
     const activeRules = await prisma.automationRule.findMany({
       where: {
-        userId: session.user.id,
+        userId,
         triggerType: 'TRANSACTION_CREATED',
         isActive: true,
       },
@@ -259,7 +276,7 @@ export async function POST(request: Request) {
           splitCount: validated.splitCount || null,
           splitType: validated.splitType || null,
           subAccountId: validated.subAccountId || null,
-          userId: session.user.id,
+          userId,
         },
       });
 
@@ -315,7 +332,7 @@ export async function POST(request: Request) {
 
         const budget = await tx.budget.findFirst({
           where: {
-            userId: session.user.id,
+            userId,
             categoryId: validated.categoryId,
             month: txMonth,
             year: txYear,
@@ -340,7 +357,7 @@ export async function POST(request: Request) {
               totalLent: validated.amount,
               outstandingBalance: validated.amount,
               status: 'ACTIVE',
-              userId: session.user.id,
+              userId,
               personId: person.id,
               accountId: validated.accountId,
             }
@@ -385,7 +402,7 @@ export async function POST(request: Request) {
             accountId: topUp.sourceAccountId,
             transferToAccountId: validated.accountId,
             linkedTransactionId: createdTx.id,
-            userId: session.user.id,
+            userId,
           },
         });
 

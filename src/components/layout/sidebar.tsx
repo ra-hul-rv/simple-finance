@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { AppLogo } from '@/components/shared/app-logo';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -19,7 +20,6 @@ import {
   Receipt,
   DollarSign,
   ChevronLeft,
-  Sparkles,
   Vault,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -193,11 +193,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <Link
         href={item.href}
         className={cn(
-          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.8125rem] font-medium transition-all duration-200',
-          'hover:bg-accent hover:text-accent-foreground',
+          'flex items-center gap-2.5 rounded-lg px-3 py-[11px] text-base font-medium transition-all duration-200',
+          'hover:text-primary',
           isActive
-            ? 'bg-primary/10 text-primary shadow-sm'
-            : 'text-muted-foreground',
+            ? 'text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground',
           collapsed && 'justify-center px-2'
         )}
       >
@@ -212,13 +212,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {item.title}
           </motion.span>
         )}
-        {isActive && !collapsed && (
-          <motion.div
-            layoutId="sidebar-active"
-            className="ml-auto h-1.5 w-1.5 rounded-full bg-primary"
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          />
-        )}
+
       </Link>
     );
 
@@ -242,7 +236,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return (
       <div className="space-y-0.5">
         {!collapsed && (
-          <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+          <p className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {section.title || section.id}
           </p>
         )}
@@ -264,7 +258,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 68 : 260 }}
+      animate={{ width: collapsed ? 96 : 308 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className={cn(
         'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-sidebar-border bg-sidebar',
@@ -277,16 +271,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         collapsed && 'justify-center px-2'
       )}>
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
+          <AppLogo size="md" />
           <AnimatePresence>
             {!collapsed && (
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
-                className="text-lg font-bold tracking-tight"
+                className="text-lg font-bold"
+                style={{ fontFamily: "var(--font-display)" }}
               >
                 Simple Finance
               </motion.span>
@@ -303,8 +296,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           ))}
           <div className="space-y-0.5">
             {!collapsed && (
-              <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              <p className="px-3 pb-1.5 text-[0.625rem] font-bold uppercase tracking-[0.2em] text-primary/70" style={{ fontFamily: "var(--font-display)" }}>
                 System
+                <span className="ml-2 inline-block align-middle text-primary/25">{'————'}</span>
               </p>
             )}
             {collapsed && <Separator className="my-2" />}

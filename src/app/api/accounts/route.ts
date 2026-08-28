@@ -34,15 +34,32 @@ const accountSchema = z.object({
   notes: z.string().nullish(),
 });
 
-export async function GET() {
+async function getUserIdFromRequest(request: Request): Promise<string | null> {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      const settings = await prisma.userSettings.findFirst({
+        where: { webhookToken: token },
+        select: { userId: true },
+      });
+      if (settings?.userId) return settings.userId;
+    }
+  }
+
+  const session = await auth();
+  return session?.user?.id || null;
+}
+
+export async function GET(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const accounts = await prisma.account.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       include: {
         subAccounts: {
           select: {
@@ -84,8 +101,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userId = await getUserIdFromRequest(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -95,7 +112,7 @@ export async function POST(request: Request) {
     const account = await prisma.account.create({
       data: {
         ...validated,
-        userId: session.user.id,
+        userId,
       },
     });
 
