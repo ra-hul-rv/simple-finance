@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import * as XLSX from 'xlsx';
-
-const NVIDIA_AI_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const NVIDIA_AI_KEY = 'Bearer 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';
-const NVIDIA_AI_MODEL = 'meta/llama-3.2-11b-vision-instruct';
+import { callAi, getAiConfig } from '@/lib/ai';
 
 // Helper to sanitize sensitive PII before passing text to the AI
 export function sanitizeStatementText(text: string): string {
@@ -138,32 +135,20 @@ Rules:
 - Never make up fake transactions.`;
 
   try {
-    const aiResponse = await fetch(NVIDIA_AI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': NVIDIA_AI_KEY,
-      },
-      body: JSON.stringify({
-        model: NVIDIA_AI_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract all transactions from this text:\n\n${chunkText}` },
-        ],
-        temperature: 0.1,
-        max_tokens: 2000,
-      }),
+    const rawContent = await callAi({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Extract all transactions from this text:\n\n${chunkText}` },
+      ],
+      temperature: 0.1,
+      max_tokens: 2000,
     });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error('[Statement Upload] AI API error:', aiResponse.status, errText);
+    if (!rawContent) {
       return [];
     }
 
-    const result = await aiResponse.json();
-    let content = result.choices?.[0]?.message?.content || '[]';
-    content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+    let content = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     const firstBracket = content.indexOf('[');
     const lastBracket = content.lastIndexOf(']');
@@ -328,7 +313,7 @@ export async function POST(request: Request) {
       '[Statement Upload] Total lines: %d. Processing in %d chunk(s) using model %s...',
       allLines.length,
       chunks.length,
-      NVIDIA_AI_MODEL
+      getAiConfig().model
     );
 
     let extractedList: any[] = [];

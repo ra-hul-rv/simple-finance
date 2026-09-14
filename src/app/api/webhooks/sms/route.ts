@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { callAi } from '@/lib/ai';
 
 // GET handler to easily test if the webhook is alive and reachable
 export async function GET() {
@@ -199,28 +200,18 @@ Rules:
     let aiData: any = {};
 
     try {
-      console.log('[SMS Webhook] Calling Nvidia AI...');
-      const aiResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer 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'
-        },
-        body: JSON.stringify({
-          model: 'meta/llama-3.2-11b-vision-instruct',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.1,
-          max_tokens: 600
-        })
+      console.log('[SMS Webhook] Calling AI...');
+      const rawContent = await callAi({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 600
       });
 
-      if (aiResponse.ok) {
-        const result = await aiResponse.json();
-        let content = result.choices?.[0]?.message?.content || '{}';
-        content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+      if (rawContent) {
+        let content = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
         const firstBrace = content.indexOf('{');
         const lastBrace = content.lastIndexOf('}');
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -228,9 +219,6 @@ Rules:
         }
         aiData = JSON.parse(content);
         console.log('[SMS Webhook] AI Parsed successfully:', aiData);
-      } else {
-        const errText = await aiResponse.text();
-        console.error('[SMS Webhook] Nvidia AI API error:', errText);
       }
     } catch (aiError) {
       console.error('[SMS Webhook] Failed to parse with AI:', aiError);
