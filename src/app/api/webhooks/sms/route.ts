@@ -106,8 +106,8 @@ export async function POST(request: Request) {
       ? new Date(typeof smsTimestamp === 'number' && smsTimestamp < 10000000000 ? smsTimestamp * 1000 : smsTimestamp).toISOString()
       : null;
 
-    // 4. Fetch user's categories and accounts for matching & AI prompt
-    const [categories, accounts, creditCards] = await Promise.all([
+    // 4. Fetch user's categories, accounts, credit cards, and SMS rules
+    const [categories, accounts, creditCards, smsRules] = await Promise.all([
       prisma.category.findMany({
         where: { userId, isActive: true },
         select: { id: true, name: true, type: true }
@@ -119,6 +119,14 @@ export async function POST(request: Request) {
       prisma.creditCard.findMany({
         where: { userId },
         select: { accountId: true, cardName: true, lastFourDigits: true, cardNumber: true }
+      }),
+      prisma.smsRule.findMany({
+        where: { userId },
+        select: {
+          identifier: true, label: true, aiNote: true,
+          defaultType: true, defaultCategoryId: true, defaultAccountId: true,
+          defaultMerchant: true, defaultDescription: true
+        }
       })
     ]);
 
@@ -140,7 +148,20 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Call Nvidia AI to understand the SMS and fill in fields
+    // 6. Build the AI prompt with SMS rules included
+    const rulesForPrompt = smsRules.map(r => ({
+      identifier: r.identifier,
+      label: r.label,
+      note: r.aiNote || undefined,
+      defaults: {
+        type: r.defaultType || undefined,
+        categoryId: r.defaultCategoryId || undefined,
+        accountId: r.defaultAccountId || undefined,
+        merchant: r.defaultMerchant || undefined,
+        description: r.defaultDescription || undefined,
+      }
+    }));
+
     const systemPrompt = `You are a financial AI assistant. Parse SMS bank transaction alerts into structured JSON.
 Only return valid JSON, no markdown, no explanation.
 
@@ -149,6 +170,9 @@ ${JSON.stringify(categories)}
 
 The user's accounts (pick one accountId that best matches, or null):
 ${JSON.stringify(accounts.map(a => ({ id: a.id, name: a.name, type: a.type })))}
+
+${rulesForPrompt.length > 0 ? `The user has saved rules for known merchants/senders. Match the SMS to a rule by its identifier if possible. If a rule matches, use its "note" and "defaults" to fill the fields:
+${JSON.stringify(rulesForPrompt)}` : ''}
 
 Output this exact JSON schema:
 {
@@ -159,13 +183,16 @@ Output this exact JSON schema:
   "categoryId": "uuid string or null",
   "merchant": "string or null",
   "description": "short human-readable summary of the transaction",
-  "date": "ISO8601 date string or null"
+  "date": "ISO8601 date string or null",
+  "uniqueIdentifier": "a short uppercase key that uniquely identifies this merchant/sender/payment-type, e.g. SWIGGY, AMAZON, YESBNK_UPI, PHONEPE_RECHARGE"
 }
 
 Rules:
 - "description" should be a clean, short summary like "UPI payment to Vijayakumari" or "YES BANK Card payment", NOT the raw SMS text.
+- "uniqueIdentifier" should be a stable, reusable key for this type of transaction. Use the merchant name, app name, or bank+type as the key. Always UPPERCASE, no spaces, use underscores.
 - If the SMS mentions a card number ending (e.g. X2020), try to match it to an account.
-- If you cannot determine a field, set it to null. Never make up IDs.`;
+- If you cannot determine a field, set it to null. Never make up IDs.
+- If a saved rule matches, ALWAYS prefer its defaults over your own guess for categoryId, accountId, type, merchant, and description.`;
 
     const userPrompt = `Parse this SMS from "${sender}": "${message}"`;
 
@@ -186,7 +213,7 @@ Rules:
             { role: 'user', content: userPrompt }
           ],
           temperature: 0.1,
-          max_tokens: 500
+          max_tokens: 600
         })
       });
 
@@ -219,9 +246,62 @@ Rules:
       merchant: aiData.merchant || forwarderMerchant || null,
       description: aiData.description || (forwarderMerchant ? `Payment to ${forwarderMerchant}` : 'SMS Transaction'),
       date: aiData.date || forwarderDate || new Date().toISOString(),
+      uniqueIdentifier: aiData.uniqueIdentifier || null,
     };
 
-    // 8. Save directly to InboxEvent for the AI Inbox page
+    // 8. Auto-create or update SMS Rule based on uniqueIdentifier
+    if (finalParsed.uniqueIdentifier) {
+      const normalizedId = String(finalParsed.uniqueIdentifier).toUpperCase().trim();
+      try {
+        const existingRule = await prisma.smsRule.findUnique({
+          where: { userId_identifier: { userId, identifier: normalizedId } }
+        });
+
+        if (existingRule) {
+          // Increment usage count
+          await prisma.smsRule.update({
+            where: { id: existingRule.id },
+            data: { usageCount: { increment: 1 }, lastUsedAt: new Date() }
+          });
+          console.log('[SMS Webhook] Updated SmsRule usage:', normalizedId);
+
+          // Apply saved defaults from the rule to fill any remaining null fields
+          if (!finalParsed.categoryId && existingRule.defaultCategoryId) {
+            finalParsed.categoryId = existingRule.defaultCategoryId;
+          }
+          if (!finalParsed.accountId && existingRule.defaultAccountId) {
+            finalParsed.accountId = existingRule.defaultAccountId;
+          }
+          if (existingRule.defaultType && !aiData.type) {
+            finalParsed.type = existingRule.defaultType;
+          }
+          if (existingRule.defaultMerchant && !aiData.merchant) {
+            finalParsed.merchant = existingRule.defaultMerchant;
+          }
+          if (existingRule.defaultDescription && !aiData.description) {
+            finalParsed.description = existingRule.defaultDescription;
+          }
+        } else {
+          // Auto-create new rule
+          await prisma.smsRule.create({
+            data: {
+              userId,
+              identifier: normalizedId,
+              label: finalParsed.merchant || finalParsed.description || normalizedId,
+              autoCreated: true,
+              usageCount: 1,
+              lastUsedAt: new Date(),
+            }
+          });
+          console.log('[SMS Webhook] Auto-created SmsRule:', normalizedId);
+        }
+      } catch (ruleError) {
+        // Don't fail the whole request if rule creation fails
+        console.error('[SMS Webhook] SmsRule upsert error:', ruleError);
+      }
+    }
+
+    // 9. Save directly to InboxEvent for the AI Inbox page
     const payloadToSave = {
       rawMessage: message,
       rawSender: sender,
@@ -252,3 +332,4 @@ Rules:
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

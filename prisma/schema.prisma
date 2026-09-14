@@ -132,6 +132,7 @@ model User {
   inboxEvents           InboxEvent[]
   people                Person[]
   emis                  Emi[]
+  smsRules              SmsRule[]
 }
 
 model UserSettings {
@@ -189,6 +190,7 @@ model Account {
   emis                  Emi[]
   subAccounts           SubAccount[]
   upiTemplates          UpiTemplate[]
+  smsRules              SmsRule[]
 
   @@index([userId])
   @@index([type])
@@ -290,6 +292,7 @@ model Category {
   recurringTransactions RecurringTransaction[]
   subscriptions         Subscription[]
   upiTemplates          UpiTemplate[]
+  smsRules              SmsRule[]
 
   @@index([userId])
   @@index([parentId])
@@ -710,6 +713,30 @@ model UpiTemplate {
   @@unique([userId, upiId])
   @@index([userId])
   @@index([upiId])
+}
+model SmsRule {
+  id                 String    @id @default(uuid())
+  identifier         String
+  label              String
+  aiNote             String?
+  defaultType        String?
+  defaultCategoryId  String?
+  defaultAccountId   String?
+  defaultMerchant    String?
+  defaultDescription String?
+  autoCreated        Boolean   @default(true)
+  usageCount         Int       @default(0)
+  lastUsedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [defaultCategoryId], references: [id], onDelete: SetNull)
+  account   Account?  @relation(fields: [defaultAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, identifier])
+  @@index([userId])
 }
 
 model InboxEvent {

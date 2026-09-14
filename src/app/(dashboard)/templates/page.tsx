@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategorySelector } from '@/components/shared/category-selector';
 import { TemplatesTab as StandardTemplatesTab } from '@/components/settings/templates-tab';
+import { SmsRulesTab } from '@/components/templates/sms-rules-tab';
 import {
+  Brain,
   Sparkles,
   Plus,
   Search,
@@ -71,7 +73,7 @@ interface UpiTemplateItem {
 }
 
 export default function TemplatesPage() {
-  const [activeTab, setActiveTab] = useState<'upi' | 'standard'>('upi');
+  const [activeTab, setActiveTab] = useState<'sms' | 'upi' | 'standard'>('sms');
   const [isPending, startTransition] = useTransition();
 
   // Data states
@@ -262,8 +264,8 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-6 pb-12">
       <PageHeader
-        title="Templates & Presets"
-        description="Configure UPI auto-match rules for n8n SMS automations and fast transaction presets."
+        title="Templates & Rules"
+        description="Configure SMS AI learning rules, UPI auto-match patterns, and transaction presets."
       >
         <div className="flex items-center gap-2">
           <Button onClick={fetchData} variant="outline" size="sm" className="gap-1.5 rounded-xl bg-background/30">
@@ -280,16 +282,24 @@ export default function TemplatesPage() {
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="w-full">
-        <TabsList className="grid grid-cols-2 w-full max-w-md h-11 p-1 bg-background/40 border border-border/40 rounded-xl mb-6">
+        <TabsList className="grid grid-cols-3 w-full max-w-lg h-11 p-1 bg-background/40 border border-border/40 rounded-xl mb-6">
+          <TabsTrigger value="sms" className="rounded-lg text-xs font-semibold gap-2">
+            <Brain className="h-4 w-4 text-primary" />
+            SMS AI Rules
+          </TabsTrigger>
           <TabsTrigger value="upi" className="rounded-lg text-xs font-semibold gap-2">
             <Zap className="h-4 w-4 text-amber-500" />
-            UPI Auto-Match (n8n)
+            UPI Templates
           </TabsTrigger>
           <TabsTrigger value="standard" className="rounded-lg text-xs font-semibold gap-2">
             <FileSpreadsheet className="h-4 w-4 text-indigo-500" />
-            Standard Presets
+            Presets
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="sms" className="space-y-6 mt-0">
+          <SmsRulesTab accounts={accounts} categories={categories} />
+        </TabsContent>
 
         <TabsContent value="upi" className="space-y-6 mt-0">
           {/* Summary Stat Cards */}
