@@ -16,7 +16,10 @@ const settingsSchema = z.object({
   sidebarSectionLabels: z.string().optional().nullable(),
   sidebarLayout: z.string().optional().nullable(),
   defaultAccountId: z.string().optional().nullable(),
+  aiProvider: z.string().optional(),
 });
+
+const patchSchema = settingsSchema.partial();
 
 export async function GET() {
   try {
@@ -87,3 +90,38 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validated = patchSchema.parse(body);
+
+    const settings = await prisma.userSettings.upsert({
+      where: { userId: session.user.id },
+      update: validated,
+      create: {
+        userId: session.user.id,
+        currency: 'INR',
+        dateFormat: 'dd/MM/yyyy',
+        locale: 'en-IN',
+        theme: 'dark',
+        colorTheme: 'selvault',
+        ...validated,
+      },
+    });
+
+    return NextResponse.json(settings);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 });
+    }
+    console.error('Failed to patch settings:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+

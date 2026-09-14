@@ -151,6 +151,7 @@ model UserSettings {
   colorTheme           String   @default("selvault")
   webhookToken         String?
   defaultAccountId     String?
+  aiProvider           String   @default("local")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

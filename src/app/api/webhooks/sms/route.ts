@@ -107,8 +107,8 @@ export async function POST(request: Request) {
       ? new Date(typeof smsTimestamp === 'number' && smsTimestamp < 10000000000 ? smsTimestamp * 1000 : smsTimestamp).toISOString()
       : null;
 
-    // 4. Fetch user's categories, accounts, credit cards, and SMS rules
-    const [categories, accounts, creditCards, smsRules] = await Promise.all([
+    // 4. Fetch user's categories, accounts, credit cards, SMS rules, and settings
+    const [categories, accounts, creditCards, smsRules, userSettings] = await Promise.all([
       prisma.category.findMany({
         where: { userId, isActive: true },
         select: { id: true, name: true, type: true }
@@ -128,6 +128,10 @@ export async function POST(request: Request) {
           defaultType: true, defaultCategoryId: true, defaultAccountId: true,
           defaultMerchant: true, defaultDescription: true
         }
+      }),
+      prisma.userSettings.findFirst({
+        where: { userId },
+        select: { aiProvider: true }
       })
     ]);
 
@@ -207,7 +211,8 @@ Rules:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 600
+        max_tokens: 600,
+        provider: userSettings?.aiProvider || 'local'
       });
 
       if (rawContent) {

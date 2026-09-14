@@ -45,6 +45,8 @@ import {
   FileSpreadsheet,
   Lock,
   Sparkles,
+  Server,
+  Cloud,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toast } from 'sonner';
@@ -94,6 +96,9 @@ export default function InboxPage() {
   const [importSanitizePii, setImportSanitizePii] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
 
+  // Active AI Engine Provider State (persisted in DB UserSettings)
+  const [aiProvider, setAiProvider] = useState<'local' | 'nvidia'>('local');
+
   // Lookup maps for showing names instead of IDs in the table
   const accountMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -109,19 +114,47 @@ export default function InboxPage() {
 
   const fetchData = async () => {
     try {
-      const [eventsRes, catsRes, accsRes] = await Promise.all([
+      const [eventsRes, catsRes, accsRes, settingsRes] = await Promise.all([
         fetch('/api/inbox'),
         fetch('/api/categories'),
         fetch('/api/accounts'),
+        fetch('/api/settings'),
       ]);
       if (eventsRes.ok) setEvents(await eventsRes.json());
       if (catsRes.ok) setCategories((await catsRes.json()).filter((c: any) => c.isActive));
       if (accsRes.ok) setAccounts(await accsRes.json());
+      if (settingsRes.ok) {
+        const s = await settingsRes.json();
+        if (s.aiProvider === 'nvidia' || s.aiProvider === 'local') {
+          setAiProvider(s.aiProvider);
+        }
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to load inbox data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleAiProvider = async (newProvider: 'local' | 'nvidia') => {
+    setAiProvider(newProvider);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aiProvider: newProvider }),
+      });
+      if (res.ok) {
+        toast.success(
+          newProvider === 'local'
+            ? 'Active Engine: Local Ollama (Qwen 2.5 3B)'
+            : 'Active Engine: Nvidia Cloud (Llama 3.2 11B)'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update AI provider:', err);
+      toast.error('Failed to save AI engine preference');
     }
   };
 
@@ -399,17 +432,53 @@ export default function InboxPage() {
         title="AI Inbox"
         description="Transactions parsed by AI from SMS or bank statements. Review, edit, and approve."
       >
-        <div className="flex items-center gap-2">
-          <Button onClick={fetchData} variant="outline" size="sm" className="gap-1.5 h-10">
-            <RefreshCw className="h-4 w-4" />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* AI Engine Switcher */}
+          <div className="inline-flex items-center p-1 bg-muted/70 rounded-xl border border-border text-xs">
+            <button
+              type="button"
+              onClick={() => handleToggleAiProvider('local')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                aiProvider === 'local'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Use Local Ollama (Qwen 2.5 3B) running on Proxmox"
+            >
+              <Server className={`h-3.5 w-3.5 ${aiProvider === 'local' ? 'text-emerald-500' : ''}`} />
+              <span>Local Ollama</span>
+              {aiProvider === 'local' && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleAiProvider('nvidia')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                aiProvider === 'nvidia'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Use Nvidia Cloud (Llama 3.2 11B)"
+            >
+              <Cloud className={`h-3.5 w-3.5 ${aiProvider === 'nvidia' ? 'text-blue-500' : ''}`} />
+              <span>Nvidia Cloud</span>
+              {aiProvider === 'nvidia' && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+              )}
+            </button>
+          </div>
+
+          <Button onClick={fetchData} variant="outline" size="sm" className="gap-1.5 h-9">
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </Button>
           <Button
             onClick={() => setIsImportOpen(true)}
             size="sm"
-            className="gap-1.5 h-10 shadow-sm"
+            className="gap-1.5 h-9 shadow-sm"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-3.5 w-3.5" />
             Import Statement
           </Button>
         </div>
@@ -663,6 +732,34 @@ export default function InboxPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* Active AI Engine Banner */}
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border/80 bg-muted/40 text-xs">
+              <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
+                <Bot className="h-4 w-4 text-primary" />
+                Active AI Engine:
+              </span>
+              <div className="flex items-center gap-2">
+                {aiProvider === 'local' ? (
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
+                    <Server className="h-3.5 w-3.5" />
+                    Local Ollama (Qwen 2.5 3B)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-blue-500">
+                    <Cloud className="h-3.5 w-3.5" />
+                    Nvidia Cloud (Llama 3.2 11B)
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleToggleAiProvider(aiProvider === 'local' ? 'nvidia' : 'local')}
+                  className="text-[11px] underline text-muted-foreground hover:text-foreground transition-colors ml-1"
+                >
+                  Switch
+                </button>
+              </div>
+            </div>
+
             {/* Input Mode Tabs */}
             <Tabs value={importTab} onValueChange={(val: any) => setImportTab(val)} className="w-full">
               <TabsList className="grid grid-cols-2 w-full h-10 mb-3">

@@ -97,7 +97,8 @@ async function parseChunkWithAi(
   categories: any[],
   rulesPrompt: string,
   accountId: string | null,
-  dateFilterInstruction: string
+  dateFilterInstruction: string,
+  provider?: string | null
 ): Promise<any[]> {
   const systemPrompt = `You are a financial statement analyzer. Extract financial transactions from bank/credit-card statements or table rows into a structured JSON array.
 Only return valid JSON array, with no markdown, no explanation.
@@ -142,6 +143,7 @@ Rules:
       ],
       temperature: 0.1,
       max_tokens: 2000,
+      provider,
     });
 
     if (!rawContent) {
@@ -260,8 +262,8 @@ export async function POST(request: Request) {
     // 1. Sanitize sensitive PII if enabled
     const processedText = sanitizePii ? sanitizeStatementText(rawText) : rawText;
 
-    // 2. Fetch user's categories, accounts, and saved rules for AI context
-    const [categories, smsRules] = await Promise.all([
+    // 2. Fetch user's categories, saved rules, and settings for AI context
+    const [categories, smsRules, userSettings] = await Promise.all([
       prisma.category.findMany({
         where: { userId, isActive: true },
         select: { id: true, name: true, type: true },
@@ -277,7 +279,14 @@ export async function POST(request: Request) {
           defaultAccountId: true,
         },
       }),
+      prisma.userSettings.findFirst({
+        where: { userId },
+        select: { aiProvider: true },
+      }),
     ]);
+
+    const provider = userSettings?.aiProvider || 'local';
+    const activeAiConfig = getAiConfig(provider);
 
     const rulesPrompt = smsRules
       .map((r) => `- "${r.identifier}" (${r.label})${r.aiNote ? `: ${r.aiNote}` : ''}`)
@@ -310,10 +319,11 @@ export async function POST(request: Request) {
     }
 
     console.log(
-      '[Statement Upload] Total lines: %d. Processing in %d chunk(s) using model %s...',
+      '[Statement Upload] Total lines: %d. Processing in %d chunk(s) using %s (%s)...',
       allLines.length,
       chunks.length,
-      getAiConfig().model
+      activeAiConfig.name,
+      activeAiConfig.model
     );
 
     let extractedList: any[] = [];
@@ -328,7 +338,8 @@ export async function POST(request: Request) {
             categories,
             rulesPrompt,
             accountId,
-            dateFilterInstruction
+            dateFilterInstruction,
+            provider
           )
         )
       );
