@@ -47,6 +47,11 @@ import {
   Sparkles,
   Server,
   Cloud,
+  Inbox,
+  Plus,
+  Search,
+  StickyNote,
+  Tag,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toast } from 'sonner';
@@ -57,6 +62,24 @@ interface InboxEvent {
   payload: any;
   status: 'PENDING' | 'PROCESSED' | 'DISMISSED';
   createdAt: string;
+}
+
+interface SmsRule {
+  id: string;
+  identifier: string;
+  label: string;
+  aiNote?: string | null;
+  defaultType?: string | null;
+  defaultCategoryId?: string | null;
+  defaultAccountId?: string | null;
+  defaultMerchant?: string | null;
+  defaultDescription?: string | null;
+  autoCreated: boolean;
+  usageCount: number;
+  lastUsedAt?: string | null;
+  createdAt: string;
+  category?: { id: string; name: string } | null;
+  account?: { id: string; name: string } | null;
 }
 
 // Helper: extract the parsed transaction data from any payload shape
@@ -96,8 +119,26 @@ export default function InboxPage() {
   const [importSanitizePii, setImportSanitizePii] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
 
-  // Active AI Engine Provider State (persisted in DB UserSettings)
+  // Active Main Tab State ('inbox' | 'rules')
+  const [activeMainTab, setActiveMainTab] = useState<'inbox' | 'rules'>('inbox');
+
+  // AI Engine Provider State (persisted in DB UserSettings)
   const [aiProvider, setAiProvider] = useState<'local' | 'nvidia'>('local');
+
+  // AI Rules & Notes State
+  const [rules, setRules] = useState<SmsRule[]>([]);
+  const [ruleSearch, setRuleSearch] = useState('');
+  const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<SmsRule | null>(null);
+  const [ruleIdentifier, setRuleIdentifier] = useState('');
+  const [ruleLabel, setRuleLabel] = useState('');
+  const [ruleAiNote, setRuleAiNote] = useState('');
+  const [ruleDefaultType, setRuleDefaultType] = useState('EXPENSE');
+  const [ruleDefaultCategoryId, setRuleDefaultCategoryId] = useState('');
+  const [ruleDefaultAccountId, setRuleDefaultAccountId] = useState('');
+  const [ruleDefaultMerchant, setRuleDefaultMerchant] = useState('');
+  const [ruleDefaultDescription, setRuleDefaultDescription] = useState('');
+  const [isSavingRule, setIsSavingRule] = useState(false);
 
   // Lookup maps for showing names instead of IDs in the table
   const accountMap = useMemo(() => {
@@ -112,17 +153,31 @@ export default function InboxPage() {
     return m;
   }, [categories]);
 
+  const filteredRules = useMemo(() => {
+    if (!ruleSearch.trim()) return rules;
+    const q = ruleSearch.toLowerCase();
+    return rules.filter(
+      r =>
+        r.identifier.toLowerCase().includes(q) ||
+        r.label.toLowerCase().includes(q) ||
+        (r.aiNote && r.aiNote.toLowerCase().includes(q)) ||
+        (r.defaultMerchant && r.defaultMerchant.toLowerCase().includes(q))
+    );
+  }, [rules, ruleSearch]);
+
   const fetchData = async () => {
     try {
-      const [eventsRes, catsRes, accsRes, settingsRes] = await Promise.all([
+      const [eventsRes, catsRes, accsRes, settingsRes, rulesRes] = await Promise.all([
         fetch('/api/inbox'),
         fetch('/api/categories'),
         fetch('/api/accounts'),
         fetch('/api/settings'),
+        fetch('/api/sms-rules'),
       ]);
       if (eventsRes.ok) setEvents(await eventsRes.json());
       if (catsRes.ok) setCategories((await catsRes.json()).filter((c: any) => c.isActive));
       if (accsRes.ok) setAccounts(await accsRes.json());
+      if (rulesRes.ok) setRules(await rulesRes.json());
       if (settingsRes.ok) {
         const s = await settingsRes.json();
         if (s.aiProvider === 'nvidia' || s.aiProvider === 'local') {
@@ -155,6 +210,87 @@ export default function InboxPage() {
     } catch (err) {
       console.error('Failed to update AI provider:', err);
       toast.error('Failed to save AI engine preference');
+    }
+  };
+
+  const handleOpenRuleDialog = (rule?: SmsRule) => {
+    if (rule) {
+      setEditingRule(rule);
+      setRuleIdentifier(rule.identifier);
+      setRuleLabel(rule.label);
+      setRuleAiNote(rule.aiNote || '');
+      setRuleDefaultType(rule.defaultType || 'EXPENSE');
+      setRuleDefaultCategoryId(rule.defaultCategoryId || '');
+      setRuleDefaultAccountId(rule.defaultAccountId || '');
+      setRuleDefaultMerchant(rule.defaultMerchant || '');
+      setRuleDefaultDescription(rule.defaultDescription || '');
+    } else {
+      setEditingRule(null);
+      setRuleIdentifier('');
+      setRuleLabel('');
+      setRuleAiNote('');
+      setRuleDefaultType('EXPENSE');
+      setRuleDefaultCategoryId('');
+      setRuleDefaultAccountId('');
+      setRuleDefaultMerchant('');
+      setRuleDefaultDescription('');
+    }
+    setIsRuleDialogOpen(true);
+  };
+
+  const handleSaveRule = async () => {
+    if (!ruleIdentifier.trim() || !ruleLabel.trim()) {
+      toast.error('Unique Identifier and Label are required');
+      return;
+    }
+
+    setIsSavingRule(true);
+    try {
+      const payload = {
+        identifier: ruleIdentifier.trim().toUpperCase(),
+        label: ruleLabel.trim(),
+        aiNote: ruleAiNote.trim() || null,
+        defaultType: ruleDefaultType || null,
+        defaultCategoryId: ruleDefaultCategoryId && ruleDefaultCategoryId !== 'none' ? ruleDefaultCategoryId : null,
+        defaultAccountId: ruleDefaultAccountId && ruleDefaultAccountId !== 'none' ? ruleDefaultAccountId : null,
+        defaultMerchant: ruleDefaultMerchant.trim() || null,
+        defaultDescription: ruleDefaultDescription.trim() || null,
+      };
+
+      const url = editingRule ? `/api/sms-rules/${editingRule.id}` : '/api/sms-rules';
+      const method = editingRule ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save rule');
+      }
+
+      toast.success(editingRule ? 'Rule updated successfully!' : 'Rule created successfully!');
+      setIsRuleDialogOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save rule');
+    } finally {
+      setIsSavingRule(false);
+    }
+  };
+
+  const handleDeleteRule = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this rule?')) return;
+
+    try {
+      const res = await fetch(`/api/sms-rules/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete rule');
+      toast.success('Rule deleted');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete rule');
     }
   };
 
@@ -484,7 +620,57 @@ export default function InboxPage() {
         </div>
       </PageHeader>
 
-      {events.length === 0 ? (
+      {/* Main Section Tabs: Pending Transactions vs AI Rules & Notes */}
+      <Tabs value={activeMainTab} onValueChange={(val: any) => setActiveMainTab(val)} className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-3">
+          <TabsList className="bg-muted/60 p-1 rounded-xl h-11 border border-border">
+            <TabsTrigger
+              value="inbox"
+              className="gap-2 px-4 py-2 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"
+            >
+              <Inbox className="h-4 w-4" />
+              <span>Pending Transactions</span>
+              {events.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] font-mono">
+                  {events.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="rules"
+              className="gap-2 px-4 py-2 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg"
+            >
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span>AI Rules & Notes</span>
+              {rules.length > 0 && (
+                <Badge variant="outline" className="ml-1 h-5 px-1.5 text-[10px] font-mono">
+                  {rules.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          {activeMainTab === 'rules' && (
+            <div className="flex items-center gap-2">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search rules, notes, identifiers..."
+                  value={ruleSearch}
+                  onChange={(e) => setRuleSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs"
+                />
+              </div>
+              <Button onClick={() => handleOpenRuleDialog()} size="sm" className="gap-1.5 h-9">
+                <Plus className="h-4 w-4" />
+                Add Rule & Note
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <TabsContent value="inbox" className="space-y-6 mt-0">
+          {events.length === 0 ? (
         <Card className="border-dashed border-2 bg-card flex flex-col items-center justify-center h-64 text-center p-6">
           <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
           <h3 className="text-lg font-semibold text-foreground">Inbox is empty</h3>
@@ -717,6 +903,178 @@ export default function InboxPage() {
           </Card>
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="rules" className="space-y-6 mt-0">
+          {/* Rules Banner */}
+          <Card className="border-border bg-card/60 p-4 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0 mt-0.5">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Unique Transaction Values & AI Notes</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
+                    Teach the AI how to categorize, label, and process transactions when specific unique identifiers appear in your SMS or bank statements. The AI reads your custom notes every time it parses new data.
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => handleOpenRuleDialog()} size="sm" className="gap-1.5 h-9 shrink-0 shadow-sm">
+                <Plus className="h-4 w-4" />
+                Add Rule & Note
+              </Button>
+            </div>
+          </Card>
+
+          {/* Rules Table / Cards */}
+          {filteredRules.length === 0 ? (
+            <Card className="border-dashed border-2 bg-card flex flex-col items-center justify-center h-60 text-center p-6">
+              <StickyNote className="h-10 w-10 text-muted-foreground/40 mb-3" />
+              <h3 className="text-base font-semibold text-foreground">
+                {ruleSearch ? 'No matching rules found' : 'No AI rules or notes created yet'}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                {ruleSearch
+                  ? `No rules match "${ruleSearch}". Try clearing the search filter.`
+                  : 'Add rules with unique values (e.g. SWIGGY, SALARY, UBER) and give AI specific notes on how to classify them.'}
+              </p>
+              <Button onClick={() => handleOpenRuleDialog()} variant="outline" size="sm" className="mt-4 gap-1.5">
+                <Plus className="h-4 w-4" />
+                Create First AI Rule & Note
+              </Button>
+            </Card>
+          ) : (
+            <Card className="border-border bg-card overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[180px]">Unique Identifier</TableHead>
+                        <TableHead className="w-[180px]">Label / Merchant</TableHead>
+                        <TableHead>Custom AI Note & Instructions</TableHead>
+                        <TableHead>Default Assignment</TableHead>
+                        <TableHead className="w-[90px] text-center">Used</TableHead>
+                        <TableHead className="w-[100px] text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRules.map((rule) => (
+                        <TableRow key={rule.id} className="hover:bg-muted/40 transition-colors">
+                          {/* Unique Identifier */}
+                          <TableCell className="font-mono">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                              <Tag className="h-3 w-3" />
+                              {rule.identifier}
+                            </span>
+                          </TableCell>
+
+                          {/* Label */}
+                          <TableCell>
+                            <div className="font-semibold text-xs text-foreground">{rule.label}</div>
+                            {rule.defaultMerchant && (
+                              <div className="text-[11px] text-muted-foreground">
+                                Merchant: {rule.defaultMerchant}
+                              </div>
+                            )}
+                          </TableCell>
+
+                          {/* AI Note */}
+                          <TableCell>
+                            {rule.aiNote ? (
+                              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-foreground flex items-start gap-2 max-w-md">
+                                <StickyNote className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2 leading-relaxed font-normal">{rule.aiNote}</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenRuleDialog(rule)}
+                                className="text-xs text-muted-foreground/70 hover:text-primary flex items-center gap-1 italic transition-colors"
+                              >
+                                <Plus className="h-3 w-3" /> Add notes for AI...
+                              </button>
+                            )}
+                          </TableCell>
+
+                          {/* Defaults */}
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {rule.defaultType && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] font-semibold ${
+                                    rule.defaultType === 'INCOME'
+                                      ? 'text-emerald-500 border-emerald-500/30'
+                                      : rule.defaultType === 'TRANSFER'
+                                      ? 'text-blue-500 border-blue-500/30'
+                                      : 'text-amber-500 border-amber-500/30'
+                                  }`}
+                                >
+                                  {rule.defaultType}
+                                </Badge>
+                              )}
+                              {rule.category ? (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {rule.category.name}
+                                </Badge>
+                              ) : rule.defaultCategoryId && categoryMap[rule.defaultCategoryId] ? (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {categoryMap[rule.defaultCategoryId]}
+                                </Badge>
+                              ) : null}
+                              {rule.account ? (
+                                <Badge variant="outline" className="text-[10px]">
+                                  {rule.account.name}
+                                </Badge>
+                              ) : rule.defaultAccountId && accountMap[rule.defaultAccountId] ? (
+                                <Badge variant="outline" className="text-[10px]">
+                                  {accountMap[rule.defaultAccountId]}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </TableCell>
+
+                          {/* Usage Count */}
+                          <TableCell className="text-center">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {rule.usageCount}×
+                            </span>
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleOpenRuleDialog(rule)}
+                                title="Edit rule and notes"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteRule(rule.id)}
+                                title="Delete rule"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* ─── Import Statement Dialog ────────────────────── */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
@@ -1072,6 +1430,152 @@ export default function InboxPage() {
               ) : (
                 'Save Changes'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Add / Edit Rule Dialog ─────────────────────── */}
+      <Dialog open={isRuleDialogOpen} onOpenChange={setIsRuleDialogOpen}>
+        <DialogContent className="sm:max-w-[560px] max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              {editingRule ? 'Edit AI Rule & Notes' : 'Create AI Rule & Notes'}
+            </DialogTitle>
+            <DialogDescription>
+              Teach the AI how to categorize, label, and process transactions matching this unique value.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Unique Identifier */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                Unique Transaction Value / Identifier <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                placeholder="e.g. SWIGGY, UBER_INDIA, SALARY_CREDIT, NETFLIX"
+                value={ruleIdentifier}
+                onChange={(e) => setRuleIdentifier(e.target.value.toUpperCase())}
+                className="font-mono text-xs uppercase"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                The unique merchant keyword, VPA, or bank pattern in the SMS or statement text.
+              </p>
+            </div>
+
+            {/* Friendly Label */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                Friendly Label / Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                placeholder="e.g. Swiggy Food Orders, Monthly Salary, Uber Travel"
+                value={ruleLabel}
+                onChange={(e) => setRuleLabel(e.target.value)}
+              />
+            </div>
+
+            {/* Custom AI Notes space */}
+            <div className="space-y-1.5 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5" />
+                Custom AI Notes & Instructions
+              </Label>
+              <Textarea
+                rows={3}
+                placeholder="e.g. Always assign this to Food & Dining. If amount > 2000, mark description as Dining Out. Paid via HDFC Card."
+                value={ruleAiNote}
+                onChange={(e) => setRuleAiNote(e.target.value)}
+                className="text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                The AI reads these exact notes whenever it parses a transaction with this identifier and follows your instructions.
+              </p>
+            </div>
+
+            {/* Default Type & Account */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Default Type
+                </Label>
+                <Select value={ruleDefaultType} onValueChange={setRuleDefaultType}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EXPENSE">Expense</SelectItem>
+                    <SelectItem value="INCOME">Income</SelectItem>
+                    <SelectItem value="TRANSFER">Transfer</SelectItem>
+                    <SelectItem value="INVESTMENT">Investment</SelectItem>
+                    <SelectItem value="CREDIT_CARD_PAYMENT">Credit Card Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Default Account
+                </Label>
+                <Select value={ruleDefaultAccountId} onValueChange={setRuleDefaultAccountId}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Auto-determine" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Auto-determine</SelectItem>
+                    {accounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Default Category */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Default Category
+              </Label>
+              <Select value={ruleDefaultCategoryId} onValueChange={setRuleDefaultCategoryId}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Auto-determine" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Auto-determine</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name} ({cat.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Default Merchant Name */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Default Merchant Name (optional)
+              </Label>
+              <Input
+                placeholder="e.g. Swiggy"
+                value={ruleDefaultMerchant}
+                onChange={(e) => setRuleDefaultMerchant(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRuleDialogOpen(false)} disabled={isSavingRule}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveRule} disabled={isSavingRule} className="gap-1.5">
+              {isSavingRule && <Loader2 className="h-4 w-4 animate-spin" />}
+              {editingRule ? 'Update Rule & Notes' : 'Save Rule & Notes'}
             </Button>
           </DialogFooter>
         </DialogContent>

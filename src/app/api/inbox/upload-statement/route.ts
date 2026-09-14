@@ -91,6 +91,42 @@ async function getUserIdFromRequest(request: Request): Promise<string | null> {
   return primaryUser?.id || null;
 }
 
+function cleanAndParseJsonArray(raw: string): any[] {
+  let content = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  const firstBracket = content.indexOf('[');
+  const lastBracket = content.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    content = content.substring(firstBracket, lastBracket + 1);
+  }
+
+  // Remove trailing commas before } or ] (common LLM JSON issue)
+  content = content.replace(/,\s*([\]}])/g, '$1');
+
+  try {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') {
+      for (const val of Object.values(parsed)) {
+        if (Array.isArray(val)) return val;
+      }
+    }
+    return [];
+  } catch {
+    // Secondary relaxed cleanup: single quotes to double quotes, comments
+    try {
+      const relaxed = content
+        .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"')
+        .replace(/,\s*([\]}])/g, '$1');
+      const parsed = JSON.parse(relaxed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.error('[Statement Upload] Failed to parse JSON array from AI:', content.slice(0, 300));
+      return [];
+    }
+  }
+}
+
 // Single AI extraction chunk call
 async function parseChunkWithAi(
   chunkText: string,
@@ -99,70 +135,64 @@ async function parseChunkWithAi(
   accountId: string | null,
   dateFilterInstruction: string,
   provider?: string | null
-): Promise<any[]> {
-  const systemPrompt = `You are a financial statement analyzer. Extract financial transactions from bank/credit-card statements or table rows into a structured JSON array.
-Only return valid JSON array, with no markdown, no explanation.
+): Promise<{ transactions: any[]; error?: string }> {
+  const systemPrompt = `You are an expert financial statement analyzer. Extract all financial transactions from the provided bank/credit-card statements or table rows into a structured JSON array.
+Only return a valid JSON array. Do not include markdown fences, thoughts, or explanatory text.
 
 ${dateFilterInstruction}
 
 User's Categories:
 ${JSON.stringify(categories)}
 
-Target Account: ${accountId ? `Assign accountId = "${accountId}"` : 'Auto-determine or leave null'}
+Target Account: ${accountId ? `Assign accountId = "${accountId}"` : 'Leave null if not explicitly known'}
 
 User's Saved Merchant Rules:
 ${rulesPrompt || 'None'}
 
-Output this exact JSON array format:
+Example Output:
 [
   {
-    "date": "YYYY-MM-DD",
-    "type": "EXPENSE" or "INCOME" or "TRANSFER",
-    "amount": number,
+    "date": "2026-08-15",
+    "type": "EXPENSE",
+    "amount": 450.50,
     "currency": "INR",
-    "description": "Clean summary of what this was (e.g. Swiggy Food, Uber Ride, Salary)",
-    "merchant": "Vendor or recipient name if discernible, or null",
-    "categoryId": "uuid from categories or null",
-    "accountId": "${accountId || ''}"
+    "description": "Swiggy Food Order",
+    "merchant": "Swiggy",
+    "categoryId": null,
+    "accountId": null
   }
 ]
 
 Rules:
-- Debit / Withdrawal / Dr / Spent -> type = "EXPENSE"
-- Credit / Deposit / Cr / Received -> type = "INCOME"
-- Amount must be a positive number (e.g. 450.50, never negative).
-- Format dates strictly as "YYYY-MM-DD" in ISO format.
-- If no transactions found or none match date filter, return [].
+- type: Must be "EXPENSE" (for debit, withdrawal, dr, purchase, charges) or "INCOME" (for credit, deposit, cr, salary, refund) or "TRANSFER".
+- amount: Must be a positive floating-point number (e.g. 450.50, never negative).
+- date: Strictly "YYYY-MM-DD" format. If day/month order is ambiguous, prefer Indian DD/MM/YYYY.
+- description: Clean, readable summary of what this transaction was.
+- merchant: Vendor or recipient name if clear, else null.
+- categoryId: Match to one of the user's category IDs if applicable, else null.
+- If no transactions are found in the text, return an empty array [].
 - Never make up fake transactions.`;
 
   try {
     const rawContent = await callAi({
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Extract all transactions from this text:\n\n${chunkText}` },
+        { role: 'user', content: `Extract all transactions from this statement text:\n\n${chunkText}` },
       ],
       temperature: 0.1,
-      max_tokens: 2000,
+      max_tokens: 2500,
       provider,
     });
 
     if (!rawContent) {
-      return [];
+      return { transactions: [] };
     }
 
-    let content = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-    const firstBracket = content.indexOf('[');
-    const lastBracket = content.lastIndexOf(']');
-    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-      content = content.substring(firstBracket, lastBracket + 1);
-    }
-
-    const parsed = JSON.parse(content);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.error('[Statement Upload] Chunk parse error:', err);
-    return [];
+    const transactions = cleanAndParseJsonArray(rawContent);
+    return { transactions };
+  } catch (err: any) {
+    console.error('[Statement Upload] Chunk parse error:', err?.message || err);
+    return { transactions: [], error: err?.message || 'Failed to call AI model' };
   }
 }
 
@@ -302,19 +332,25 @@ export async function POST(request: Request) {
     }
 
     // 3. Intelligent Chunking for large text (handles 3 months or a full year of transactions)
+    // 3. Intelligent Chunking:
+    // If statement is <= 160 lines, process in 1 prompt to preserve full table headers.
+    // If larger, split with 5 lines of overlap so multi-line transactions across boundaries are never lost.
     const allLines = processedText
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    const CHUNK_SIZE = 35; // ~35 lines per AI call to avoid token overflow
+    const CHUNK_SIZE = 120;
+    const OVERLAP = 5;
     const chunks: string[] = [];
 
-    if (allLines.length <= CHUNK_SIZE) {
+    if (allLines.length <= 160) {
       chunks.push(processedText);
     } else {
       for (let i = 0; i < allLines.length; i += CHUNK_SIZE) {
-        chunks.push(allLines.slice(i, i + CHUNK_SIZE).join('\n'));
+        const start = Math.max(0, i - (i > 0 ? OVERLAP : 0));
+        const end = Math.min(allLines.length, i + CHUNK_SIZE);
+        chunks.push(allLines.slice(start, end).join('\n'));
       }
     }
 
@@ -326,11 +362,15 @@ export async function POST(request: Request) {
       activeAiConfig.model
     );
 
-    let extractedList: any[] = [];
+    let rawExtractedList: any[] = [];
+    let lastAiError: string | null = null;
 
-    // Process chunks with limited concurrency (2 at a time)
-    for (let i = 0; i < chunks.length; i += 2) {
-      const batch = chunks.slice(i, i + 2);
+    // For local Ollama on CPU, process 1 at a time to avoid CPU contention.
+    // For Nvidia Cloud, process 2 at a time.
+    const batchSize = provider === 'local' ? 1 : 2;
+
+    for (let i = 0; i < chunks.length; i += batchSize) {
+      const batch = chunks.slice(i, i + batchSize);
       const batchResults = await Promise.all(
         batch.map((chunk) =>
           parseChunkWithAi(
@@ -343,18 +383,51 @@ export async function POST(request: Request) {
           )
         )
       );
-      for (const items of batchResults) {
-        extractedList.push(...items);
+
+      for (const res of batchResults) {
+        if (res.error) {
+          lastAiError = res.error;
+        }
+        if (res.transactions && res.transactions.length > 0) {
+          rawExtractedList.push(...res.transactions);
+        }
+      }
+    }
+
+    // Deduplicate any overlapping chunk extractions
+    const seen = new Set<string>();
+    const extractedList: any[] = [];
+    for (const tx of rawExtractedList) {
+      const key = `${tx.date || ''}_${tx.amount || 0}_${(tx.description || '').trim().toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        extractedList.push(tx);
       }
     }
 
     console.log('[Statement Upload] Total extracted transactions by AI: %d', extractedList.length);
 
     if (extractedList.length === 0) {
+      if (lastAiError) {
+        return NextResponse.json(
+          {
+            error: `AI processing failed: ${lastAiError}. Please verify that your AI engine is reachable, or switch between Local Ollama / Nvidia Cloud at the top of the AI Inbox.`,
+          },
+          { status: 502 }
+        );
+      }
+
+      let notFoundMsg = 'No transactions found in the provided text.';
+      if (startDate || endDate) {
+        notFoundMsg = `No transactions found matching the date range filter (${startDate || 'any'} to ${endDate || 'any'}). Try clearing the From/To Date filter.`;
+      } else {
+        notFoundMsg = 'No transactions could be identified in the text. Please ensure the document or pasted text contains transaction rows with dates and amounts, or switch AI engine.';
+      }
+
       return NextResponse.json({
         success: true,
         count: 0,
-        message: 'No transactions found matching the criteria in the provided text.',
+        message: notFoundMsg,
         transactions: [],
       });
     }
