@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import * as XLSX from 'xlsx';
+
+const NVIDIA_AI_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const NVIDIA_AI_KEY = 'Bearer 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';
+const NVIDIA_AI_MODEL = 'meta/llama-3.2-11b-vision-instruct';
 
 // Helper to sanitize sensitive PII before passing text to the AI
 export function sanitizeStatementText(text: string): string {
@@ -24,6 +29,48 @@ export function sanitizeStatementText(text: string): string {
   return sanitized;
 }
 
+// Robust PDF text extraction supporting password protection
+async function extractPdfText(buffer: Buffer, password?: string): Promise<string> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    password: password ? String(password).trim() : undefined,
+    useSystemFonts: true,
+    disableFontFace: true,
+    isEvalSupported: false,
+  });
+
+  const doc = await loadingTask.promise;
+  let fullText = '';
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => ('str' in item ? item.str : ''))
+      .join(' ');
+    fullText += pageText + '\n';
+  }
+  return fullText;
+}
+
+// Convert Excel (.xlsx, .xls) and SBI HTML tables into clean CSV text
+function extractExcelText(buffer: Buffer): string {
+  try {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    let combinedCsv = '';
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      if (sheet) {
+        combinedCsv += XLSX.utils.sheet_to_csv(sheet) + '\n';
+      }
+    }
+    return combinedCsv;
+  } catch (err) {
+    console.warn('[Statement Upload] SheetJS parse fallback to string:', err);
+    return buffer.toString('utf-8');
+  }
+}
+
 async function getUserIdFromRequest(request: Request): Promise<string | null> {
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -40,12 +87,96 @@ async function getUserIdFromRequest(request: Request): Promise<string | null> {
   const session = await auth();
   if (session?.user?.id) return session.user.id;
 
-  // Fallback to primary user
   const primaryUser = await prisma.user.findFirst({
     orderBy: { createdAt: 'asc' },
     select: { id: true },
   });
   return primaryUser?.id || null;
+}
+
+// Single AI extraction chunk call
+async function parseChunkWithAi(
+  chunkText: string,
+  categories: any[],
+  rulesPrompt: string,
+  accountId: string | null,
+  dateFilterInstruction: string
+): Promise<any[]> {
+  const systemPrompt = `You are a financial statement analyzer. Extract financial transactions from bank/credit-card statements or table rows into a structured JSON array.
+Only return valid JSON array, with no markdown, no explanation.
+
+${dateFilterInstruction}
+
+User's Categories:
+${JSON.stringify(categories)}
+
+Target Account: ${accountId ? `Assign accountId = "${accountId}"` : 'Auto-determine or leave null'}
+
+User's Saved Merchant Rules:
+${rulesPrompt || 'None'}
+
+Output this exact JSON array format:
+[
+  {
+    "date": "YYYY-MM-DD",
+    "type": "EXPENSE" or "INCOME" or "TRANSFER",
+    "amount": number,
+    "currency": "INR",
+    "description": "Clean summary of what this was (e.g. Swiggy Food, Uber Ride, Salary)",
+    "merchant": "Vendor or recipient name if discernible, or null",
+    "categoryId": "uuid from categories or null",
+    "accountId": "${accountId || ''}"
+  }
+]
+
+Rules:
+- Debit / Withdrawal / Dr / Spent -> type = "EXPENSE"
+- Credit / Deposit / Cr / Received -> type = "INCOME"
+- Amount must be a positive number (e.g. 450.50, never negative).
+- Format dates strictly as "YYYY-MM-DD" in ISO format.
+- If no transactions found or none match date filter, return [].
+- Never make up fake transactions.`;
+
+  try {
+    const aiResponse = await fetch(NVIDIA_AI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': NVIDIA_AI_KEY,
+      },
+      body: JSON.stringify({
+        model: NVIDIA_AI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Extract all transactions from this text:\n\n${chunkText}` },
+        ],
+        temperature: 0.1,
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+      console.error('[Statement Upload] AI API error:', aiResponse.status, errText);
+      return [];
+    }
+
+    const result = await aiResponse.json();
+    let content = result.choices?.[0]?.message?.content || '[]';
+    content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    const firstBracket = content.indexOf('[');
+    const lastBracket = content.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      content = content.substring(firstBracket, lastBracket + 1);
+    }
+
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error('[Statement Upload] Chunk parse error:', err);
+    return [];
+  }
 }
 
 export async function POST(request: Request) {
@@ -74,43 +205,52 @@ export async function POST(request: Request) {
       sanitizePii = formData.get('sanitizePii') !== 'false';
       password = (formData.get('password') as string) || '';
 
-      // If a file is uploaded, extract its content
       if (file && file.size > 0) {
         const fileBuffer = Buffer.from(await file.arrayBuffer());
         const fileName = file.name.toLowerCase();
 
+        // 1. PDF File handling
         if (fileName.endsWith('.pdf')) {
           try {
-            // Use pdf-parse to extract text
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { PDFParse } = require('pdf-parse');
-            const parser = new PDFParse({
-              data: fileBuffer,
-              password: password.trim() || undefined,
-            });
-            const textResult = await parser.getText();
-            rawText = (textResult?.text || '') + '\n' + rawText;
-            await parser.destroy();
+            console.log('[Statement Upload] Parsing PDF (%s, %d bytes)...', file.name, file.size);
+            const extracted = await extractPdfText(fileBuffer, password);
+            rawText = extracted + '\n' + rawText;
           } catch (pdfErr: any) {
             console.error('[Statement Upload] PDF Parse error:', pdfErr);
+            const msg = String(pdfErr?.message || '').toLowerCase();
+            const errName = String(pdfErr?.name || '');
             if (
-              pdfErr.name === 'PasswordException' ||
-              String(pdfErr.message || '').toLowerCase().includes('password')
+              errName.includes('Password') ||
+              msg.includes('password') ||
+              msg.includes('need_password') ||
+              msg.includes('incorrect_password')
             ) {
               return NextResponse.json(
                 {
-                  error: 'This PDF is password-protected. Please enter the password and try again.',
+                  error: 'This PDF is password-protected. Please enter the statement password and try again.',
                 },
                 { status: 400 }
               );
             }
             return NextResponse.json(
-              { error: 'Failed to read PDF. It may be corrupted or encrypted.' },
+              { error: 'Failed to read PDF. If protected, please enter the password; otherwise ensure the file is not corrupted.' },
               { status: 400 }
             );
           }
-        } else {
-          // CSV, TXT, or other plain text files
+        }
+        // 2. Excel & SBI HTML table handling (.xlsx, .xls, or HTML table)
+        else if (
+          fileName.endsWith('.xlsx') ||
+          fileName.endsWith('.xls') ||
+          fileBuffer.toString('utf-8', 0, 50).includes('<!DOCTYPE') ||
+          fileBuffer.toString('utf-8', 0, 50).includes('<html')
+        ) {
+          console.log('[Statement Upload] Parsing Excel/HTML statement (%s)...', file.name);
+          const extractedCsv = extractExcelText(fileBuffer);
+          rawText = extractedCsv + '\n' + rawText;
+        }
+        // 3. Plain text / CSV
+        else {
           const textContent = fileBuffer.toString('utf-8');
           rawText = textContent + '\n' + rawText;
         }
@@ -136,13 +276,9 @@ export async function POST(request: Request) {
     const processedText = sanitizePii ? sanitizeStatementText(rawText) : rawText;
 
     // 2. Fetch user's categories, accounts, and saved rules for AI context
-    const [categories, accounts, smsRules] = await Promise.all([
+    const [categories, smsRules] = await Promise.all([
       prisma.category.findMany({
         where: { userId, isActive: true },
-        select: { id: true, name: true, type: true },
-      }),
-      prisma.account.findMany({
-        where: { userId, status: 'ACTIVE' },
         select: { id: true, name: true, type: true },
       }),
       prisma.smsRule.findMany({
@@ -158,117 +294,67 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    // Format saved vendor rules for prompt
     const rulesPrompt = smsRules
-      .map(
-        (r) =>
-          `- Identifier: "${r.identifier}" (${r.label})${
-            r.aiNote ? ` -> Note: ${r.aiNote}` : ''
-          }`
-      )
+      .map((r) => `- "${r.identifier}" (${r.label})${r.aiNote ? `: ${r.aiNote}` : ''}`)
       .join('\n');
 
-    // 3. Build the prompt for Nvidia AI
     let dateFilterInstruction = '';
     if (startDate && endDate) {
-      dateFilterInstruction = `CRITICAL DATE FILTER: ONLY extract transactions between ${startDate} and ${endDate} (inclusive). Completely ignore any transactions dated before ${startDate} or after ${endDate}.`;
+      dateFilterInstruction = `CRITICAL DATE FILTER: ONLY extract transactions between ${startDate} and ${endDate} (inclusive). Completely ignore any transactions before ${startDate} or after ${endDate}.`;
     } else if (startDate) {
       dateFilterInstruction = `CRITICAL DATE FILTER: ONLY extract transactions dated on or after ${startDate}. Completely ignore any transactions before ${startDate}.`;
     } else if (endDate) {
       dateFilterInstruction = `CRITICAL DATE FILTER: ONLY extract transactions dated on or before ${endDate}. Completely ignore any transactions after ${endDate}.`;
     }
 
-    const systemPrompt = `You are a financial statement analyzer. Your job is to extract individual financial transactions from bank statements, credit card statements, or pasted transaction records into a structured JSON array.
-Only return valid JSON array, with no markdown, no explanation.
+    // 3. Intelligent Chunking for large text (handles 3 months or a full year of transactions)
+    const allLines = processedText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
 
-${dateFilterInstruction}
+    const CHUNK_SIZE = 35; // ~35 lines per AI call to avoid token overflow
+    const chunks: string[] = [];
 
-User's Categories:
-${JSON.stringify(categories)}
+    if (allLines.length <= CHUNK_SIZE) {
+      chunks.push(processedText);
+    } else {
+      for (let i = 0; i < allLines.length; i += CHUNK_SIZE) {
+        chunks.push(allLines.slice(i, i + CHUNK_SIZE).join('\n'));
+      }
+    }
 
-Target Account: ${accountId ? `Assign accountId = "${accountId}" to all extracted transactions unless clearly indicated otherwise.` : 'Auto-determine account or leave null.'}
-
-User's Saved Merchant Rules:
-${rulesPrompt || 'None'}
-
-Output this exact JSON array format:
-[
-  {
-    "date": "YYYY-MM-DD",
-    "type": "EXPENSE" or "INCOME" or "TRANSFER",
-    "amount": number (positive decimal),
-    "currency": "INR",
-    "description": "Clean summary of what this was (e.g. Swiggy Food, Uber Ride, Salary)",
-    "merchant": "Clean vendor or merchant name if discernible, or null",
-    "categoryId": "uuid matching one of the user's categories, or null",
-    "accountId": "${accountId || 'uuid or null'}"
-  }
-]
-
-Rules:
-- Debit / Withdrawal / Dr / Spent -> type = "EXPENSE"
-- Credit / Deposit / Cr / Received -> type = "INCOME"
-- Amount must be a positive number (e.g. 450.50, never negative).
-- Format dates strictly as "YYYY-MM-DD" in ISO format.
-- If there are multiple transactions in the text, extract each one as a separate object in the array.
-- If no transactions are found or none match the date filter, return [].
-- Never hallucinate fake transactions. Only extract what appears in the provided statement text.`;
-
-    // Limit text length if extremely large to prevent exceeding token context
-    const maxChars = 24000;
-    const truncatedText =
-      processedText.length > maxChars
-        ? processedText.substring(0, maxChars) + '\n[Text truncated due to length]'
-        : processedText;
-
-    console.log('[Statement Upload] Calling AI to parse statement text (length: %d chars)...', truncatedText.length);
-
-    const aiResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization':
-          'Bearer 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',
-      },
-      body: JSON.stringify({
-        model: 'meta/llama-3.1-70b-instruct',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: `Extract the transactions from this statement content:\n\n${truncatedText}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 2500,
-      }),
-    });
+    console.log(
+      '[Statement Upload] Total lines: %d. Processing in %d chunk(s) using model %s...',
+      allLines.length,
+      chunks.length,
+      NVIDIA_AI_MODEL
+    );
 
     let extractedList: any[] = [];
 
-    if (aiResponse.ok) {
-      const result = await aiResponse.json();
-      let content = result.choices?.[0]?.message?.content || '[]';
-      content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-      const firstBracket = content.indexOf('[');
-      const lastBracket = content.lastIndexOf(']');
-      if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
-        content = content.substring(firstBracket, lastBracket + 1);
+    // Process chunks with limited concurrency (2 at a time)
+    for (let i = 0; i < chunks.length; i += 2) {
+      const batch = chunks.slice(i, i + 2);
+      const batchResults = await Promise.all(
+        batch.map((chunk) =>
+          parseChunkWithAi(
+            chunk,
+            categories,
+            rulesPrompt,
+            accountId,
+            dateFilterInstruction
+          )
+        )
+      );
+      for (const items of batchResults) {
+        extractedList.push(...items);
       }
-
-      try {
-        extractedList = JSON.parse(content);
-      } catch (parseErr) {
-        console.error('[Statement Upload] Failed to parse AI JSON array:', parseErr, content);
-      }
-    } else {
-      const errText = await aiResponse.text();
-      console.error('[Statement Upload] Nvidia AI API error:', errText);
-      return NextResponse.json({ error: 'AI processing failed' }, { status: 502 });
     }
 
-    if (!Array.isArray(extractedList) || extractedList.length === 0) {
+    console.log('[Statement Upload] Total extracted transactions by AI: %d', extractedList.length);
+
+    if (extractedList.length === 0) {
       return NextResponse.json({
         success: true,
         count: 0,
@@ -311,7 +397,7 @@ Rules:
       })
     );
 
-    console.log('[Statement Upload] Created %d InboxEvents successfully', createdEvents.length);
+    console.log('[Statement Upload] Successfully saved %d InboxEvents', createdEvents.length);
 
     return NextResponse.json({
       success: true,

@@ -207,7 +207,7 @@ Rules:
           'Authorization': 'Bearer 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'
         },
         body: JSON.stringify({
-          model: 'meta/llama-3.1-70b-instruct',
+          model: 'meta/llama-3.2-11b-vision-instruct',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }

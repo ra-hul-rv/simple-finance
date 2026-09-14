@@ -695,11 +695,11 @@ export default function InboxPage() {
               <TabsContent value="upload" className="space-y-3 mt-0">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Select Statement File (PDF, CSV, TXT)
+                    Select Statement File (PDF, Excel, CSV, TXT)
                   </Label>
                   <Input
                     type="file"
-                    accept=".pdf,.csv,.txt"
+                    accept=".pdf,.csv,.txt,.xlsx,.xls"
                     onChange={(e) => setImportFile(e.target.files?.[0] || null)}
                     className="cursor-pointer text-xs"
                   />
