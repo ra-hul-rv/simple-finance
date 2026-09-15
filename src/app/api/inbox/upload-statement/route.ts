@@ -131,20 +131,33 @@ function cleanAndParseJsonArray(raw: string): any[] {
 async function parseChunkWithAi(
   chunkText: string,
   categories: any[],
+  accounts: any[],
+  flowTypes: any[],
   rulesPrompt: string,
   accountId: string | null,
   dateFilterInstruction: string,
   provider?: string | null
 ): Promise<{ transactions: any[]; error?: string }> {
+  const expenseCategories = categories.filter(c => c.type === 'EXPENSE');
+  const incomeCategories = categories.filter(c => c.type === 'INCOME');
+
   const systemPrompt = `You are an expert financial statement analyzer. Extract all financial transactions from the provided bank/credit-card statements or table rows into a structured JSON array.
 Only return a valid JSON array. Do not include markdown fences, thoughts, or explanatory text.
 
 ${dateFilterInstruction}
 
-User's Categories:
-${JSON.stringify(categories)}
+Expense Categories (use for type=EXPENSE):
+${JSON.stringify(expenseCategories)}
+
+Income Categories (use for type=INCOME):
+${JSON.stringify(incomeCategories)}
 
 Target Account: ${accountId ? `Assign accountId = "${accountId}"` : 'Leave null if not explicitly known'}
+Other User Accounts (pick if it's a TRANSFER):
+${JSON.stringify(accounts)}
+
+User's Flow Types:
+${JSON.stringify(flowTypes)}
 
 User's Saved Merchant Rules:
 ${rulesPrompt || 'None'}
@@ -158,6 +171,11 @@ Example Output:
     "currency": "INR",
     "description": "Swiggy Food Order",
     "merchant": "Swiggy",
+    "location": null,
+    "flowType": null,
+    "transferToAccountId": null,
+    "uniqueIdentifier": "SWIGGY",
+    "rawDetails": "15-Aug-2026 14:20 SWIGGY FOOD ORDER INR 450.50 DR",
     "categoryId": null,
     "accountId": null
   }
@@ -169,7 +187,10 @@ Rules:
 - date: Strictly "YYYY-MM-DD" format. If day/month order is ambiguous, prefer Indian DD/MM/YYYY.
 - description: Clean, readable summary of what this transaction was.
 - merchant: Vendor or recipient name if clear, else null.
+- rawDetails: The exact original line of text from the statement that corresponds to this transaction.
+- uniqueIdentifier: A short uppercase key that uniquely identifies this merchant/sender/payment-type, e.g. SWIGGY, AMAZON, YESBNK_UPI. Use the merchant name, app name, or bank+type as the key. Always UPPERCASE, no spaces, use underscores.
 - categoryId: Match to one of the user's category IDs if applicable, else null.
+- If it is a TRANSFER, try to identify both accountId and transferToAccountId if possible.
 - If no transactions are found in the text, return an empty array [].
 - Never make up fake transactions.`;
 
@@ -292,8 +313,8 @@ export async function POST(request: Request) {
     // 1. Sanitize sensitive PII if enabled
     const processedText = sanitizePii ? sanitizeStatementText(rawText) : rawText;
 
-    // 2. Fetch user's categories, saved rules, and settings for AI context
-    const [categories, smsRules, userSettings] = await Promise.all([
+    // 2. Fetch user's categories, saved rules, accounts, flow types, and settings for AI context
+    const [categories, smsRules, userSettings, accounts, flowTypes] = await Promise.all([
       prisma.category.findMany({
         where: { userId, isActive: true },
         select: { id: true, name: true, type: true },
@@ -307,12 +328,22 @@ export async function POST(request: Request) {
           defaultType: true,
           defaultCategoryId: true,
           defaultAccountId: true,
+          defaultMerchant: true,
+          defaultDescription: true,
         },
       }),
       prisma.userSettings.findFirst({
         where: { userId },
         select: { aiProvider: true },
       }),
+      prisma.account.findMany({
+        where: { userId, status: 'ACTIVE' },
+        select: { id: true, name: true, type: true, accountNumber: true },
+      }),
+      prisma.flowType.findMany({
+        where: { userId },
+        select: { id: true, name: true, type: true },
+      })
     ]);
 
     const provider = userSettings?.aiProvider || 'local';
@@ -376,6 +407,8 @@ export async function POST(request: Request) {
           parseChunkWithAi(
             chunk,
             categories,
+            accounts,
+            flowTypes,
             rulesPrompt,
             accountId,
             dateFilterInstruction,
@@ -435,21 +468,64 @@ export async function POST(request: Request) {
     // 4. Save each extracted transaction as a PENDING InboxEvent
     const createdEvents = await Promise.all(
       extractedList.map(async (tx) => {
-        const parsedData = {
-          type: tx.type === 'INCOME' ? 'INCOME' : 'EXPENSE',
+        const parsedData: any = {
+          type: tx.type === 'INCOME' ? 'INCOME' : (tx.type === 'TRANSFER' ? 'TRANSFER' : 'EXPENSE'),
           amount: Math.abs(Number(tx.amount)) || 0,
           currency: tx.currency || 'INR',
           accountId: tx.accountId || accountId || null,
           categoryId: tx.categoryId || null,
           merchant: tx.merchant || null,
+          location: tx.location || null,
+          flowType: tx.flowType || null,
+          transferToAccountId: tx.transferToAccountId || null,
           description: tx.description || 'Statement Transaction',
+          notes: tx.rawDetails || null, // Put raw statement line into notes
+          uniqueIdentifier: tx.uniqueIdentifier || null,
           date: tx.date
             ? new Date(tx.date).toISOString()
             : new Date().toISOString(),
         };
 
+        // Process SmsRule if uniqueIdentifier exists
+        if (parsedData.uniqueIdentifier) {
+          const normalizedId = String(parsedData.uniqueIdentifier).toUpperCase().trim();
+          try {
+            const existingRule = await prisma.smsRule.findUnique({
+              where: { userId_identifier: { userId, identifier: normalizedId } }
+            });
+
+            if (existingRule) {
+              await prisma.smsRule.update({
+                where: { id: existingRule.id },
+                data: { usageCount: { increment: 1 }, lastUsedAt: new Date() }
+              });
+
+              // Apply rule defaults
+              if (!parsedData.categoryId && existingRule.defaultCategoryId) parsedData.categoryId = existingRule.defaultCategoryId;
+              if (!parsedData.accountId && existingRule.defaultAccountId) parsedData.accountId = existingRule.defaultAccountId;
+              if (existingRule.defaultType && !tx.type) parsedData.type = existingRule.defaultType;
+              if (existingRule.defaultMerchant && !tx.merchant) parsedData.merchant = existingRule.defaultMerchant;
+              if (existingRule.defaultDescription && !tx.description) parsedData.description = existingRule.defaultDescription;
+            } else {
+              // Auto-create new rule
+              await prisma.smsRule.create({
+                data: {
+                  userId,
+                  identifier: normalizedId,
+                  label: parsedData.merchant || parsedData.description || normalizedId,
+                  autoCreated: true,
+                  usageCount: 1,
+                  lastUsedAt: new Date(),
+                }
+              });
+            }
+          } catch (ruleError) {
+            console.error('[Statement Upload] SmsRule upsert error:', ruleError);
+          }
+        }
+
         const payloadToSave = {
-          rawMessage: `${tx.date || ''} - ${tx.description || ''} - ${tx.amount || ''}`,
+          rawMessage: tx.rawDetails || `${tx.date || ''} - ${tx.description || ''} - ${tx.amount || ''}`,
           rawSender: 'Statement Import',
           parsed: parsedData,
           sourceType: 'statement',

@@ -107,8 +107,8 @@ export async function POST(request: Request) {
       ? new Date(typeof smsTimestamp === 'number' && smsTimestamp < 10000000000 ? smsTimestamp * 1000 : smsTimestamp).toISOString()
       : null;
 
-    // 4. Fetch user's categories, accounts, credit cards, SMS rules, and settings
-    const [categories, accounts, creditCards, smsRules, userSettings] = await Promise.all([
+    // 4. Fetch user's categories, accounts, credit cards, SMS rules, settings, and flow types
+    const [categories, accounts, creditCards, smsRules, userSettings, flowTypes] = await Promise.all([
       prisma.category.findMany({
         where: { userId, isActive: true },
         select: { id: true, name: true, type: true }
@@ -132,8 +132,16 @@ export async function POST(request: Request) {
       prisma.userSettings.findFirst({
         where: { userId },
         select: { aiProvider: true }
+      }),
+      prisma.flowType.findMany({
+        where: { userId },
+        select: { id: true, name: true, type: true }
       })
     ]);
+
+    // Group categories by type
+    const expenseCategories = categories.filter(c => c.type === 'EXPENSE');
+    const incomeCategories = categories.filter(c => c.type === 'INCOME');
 
     // 5. Try matching account by card or account number digits
     let matchedAccountId: string | null = null;
@@ -170,11 +178,17 @@ export async function POST(request: Request) {
     const systemPrompt = `You are a financial AI assistant. Parse SMS bank transaction alerts into structured JSON.
 Only return valid JSON, no markdown, no explanation.
 
-The user's categories (pick one categoryId that best matches, or null):
-${JSON.stringify(categories)}
+Expense Categories (use for type=EXPENSE):
+${JSON.stringify(expenseCategories)}
 
-The user's accounts (pick one accountId that best matches, or null):
+Income Categories (use for type=INCOME):
+${JSON.stringify(incomeCategories)}
+
+User's Accounts (pick one accountId that best matches, or null):
 ${JSON.stringify(accounts.map(a => ({ id: a.id, name: a.name, type: a.type })))}
+
+User's Flow Types (pick one flowType id if applicable, or null):
+${JSON.stringify(flowTypes.map(f => ({ id: f.id, name: f.name, type: f.type })))}
 
 ${rulesForPrompt.length > 0 ? `The user has saved rules for known merchants/senders. Match the SMS to a rule by its identifier if possible. If a rule matches, use its "note" and "defaults" to fill the fields:
 ${JSON.stringify(rulesForPrompt)}` : ''}
@@ -187,15 +201,19 @@ Output this exact JSON schema:
   "accountId": "uuid string or null",
   "categoryId": "uuid string or null",
   "merchant": "string or null",
+  "location": "string or null",
+  "flowType": "uuid string or null",
+  "transferToAccountId": "uuid string or null",
   "description": "short human-readable summary of the transaction",
   "date": "ISO8601 date string or null",
-  "uniqueIdentifier": "a short uppercase key that uniquely identifies this merchant/sender/payment-type, e.g. SWIGGY, AMAZON, YESBNK_UPI, PHONEPE_RECHARGE"
+  "uniqueIdentifier": "a short uppercase key that uniquely identifies this merchant/sender/payment-type, e.g. SWIGGY, AMAZON, YESBNK_UPI"
 }
 
 Rules:
 - "description" should be a clean, short summary like "UPI payment to Vijayakumari" or "YES BANK Card payment", NOT the raw SMS text.
 - "uniqueIdentifier" should be a stable, reusable key for this type of transaction. Use the merchant name, app name, or bank+type as the key. Always UPPERCASE, no spaces, use underscores.
 - If the SMS mentions a card number ending (e.g. X2020), try to match it to an account.
+- If it is a TRANSFER, try to identify both accountId and transferToAccountId if possible.
 - If you cannot determine a field, set it to null. Never make up IDs.
 - If a saved rule matches, ALWAYS prefer its defaults over your own guess for categoryId, accountId, type, merchant, and description.`;
 
@@ -211,7 +229,7 @@ Rules:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 600,
+        max_tokens: 800,
         provider: userSettings?.aiProvider || 'local'
       });
 
@@ -237,7 +255,11 @@ Rules:
       accountId: aiData.accountId || matchedAccountId || null,
       categoryId: aiData.categoryId || null,
       merchant: aiData.merchant || forwarderMerchant || null,
+      location: aiData.location || null,
+      flowType: aiData.flowType || null,
+      transferToAccountId: aiData.transferToAccountId || null,
       description: aiData.description || (forwarderMerchant ? `Payment to ${forwarderMerchant}` : 'SMS Transaction'),
+      notes: message, // Raw details stored in private notes
       date: aiData.date || forwarderDate || new Date().toISOString(),
       uniqueIdentifier: aiData.uniqueIdentifier || null,
     };

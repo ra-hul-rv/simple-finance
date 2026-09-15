@@ -43,9 +43,9 @@ async function executeCall(
 
   console.log(`[AI Helper] Routing request to ${config.name} (${config.url})...`);
 
-  // 60-second timeout to prevent indefinite hangs
+  // 180-second timeout to prevent indefinite hangs while supporting slow CPU inference
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  const timeoutId = setTimeout(() => controller.abort(), 180000);
 
   try {
     const response = await fetch(config.url, {
@@ -76,7 +76,7 @@ async function executeCall(
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error(`Request timed out after 60 seconds connecting to ${config.name} (${config.url}).`);
+      throw new Error(`Request timed out after 180 seconds connecting to ${config.name} (${config.url}).`);
     }
     throw err;
   }

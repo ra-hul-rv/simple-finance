@@ -94,6 +94,7 @@ export default function InboxPage() {
 
   const [categories, setCategories] = useState<{ id: string; name: string; type: string }[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [flowTypes, setFlowTypes] = useState<{ id: string; name: string; type: string }[]>([]);
 
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -103,9 +104,12 @@ export default function InboxPage() {
   const [editDate, setEditDate] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editMerchant, setEditMerchant] = useState('');
+  const [editLocation, setEditLocation] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editAccountId, setEditAccountId] = useState('');
   const [editCategoryId, setEditCategoryId] = useState('');
+  const [editFlowType, setEditFlowType] = useState('');
+  const [editTransferToAccountId, setEditTransferToAccountId] = useState('');
 
   // Import Statement Dialog State
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -167,17 +171,19 @@ export default function InboxPage() {
 
   const fetchData = async () => {
     try {
-      const [eventsRes, catsRes, accsRes, settingsRes, rulesRes] = await Promise.all([
+      const [eventsRes, catsRes, accsRes, settingsRes, rulesRes, flowRes] = await Promise.all([
         fetch('/api/inbox'),
         fetch('/api/categories'),
         fetch('/api/accounts'),
         fetch('/api/settings'),
         fetch('/api/sms-rules'),
+        fetch('/api/flow-types'),
       ]);
       if (eventsRes.ok) setEvents(await eventsRes.json());
       if (catsRes.ok) setCategories((await catsRes.json()).filter((c: any) => c.isActive));
       if (accsRes.ok) setAccounts(await accsRes.json());
       if (rulesRes.ok) setRules(await rulesRes.json());
+      if (flowRes.ok) setFlowTypes(await flowRes.json());
       if (settingsRes.ok) {
         const s = await settingsRes.json();
         if (s.aiProvider === 'nvidia' || s.aiProvider === 'local') {
@@ -335,9 +341,12 @@ export default function InboxPage() {
     setEditDate(p.date ? String(p.date).split('T')[0] : new Date().toISOString().split('T')[0]);
     setEditDescription(p.description || '');
     setEditMerchant(p.merchant || '');
+    setEditLocation(p.location || '');
     setEditNotes(p.notes || '');
     setEditAccountId(p.accountId || '');
     setEditCategoryId(p.categoryId || '');
+    setEditFlowType(p.flowType || '');
+    setEditTransferToAccountId(p.transferToAccountId || '');
     setEditDialogOpen(true);
   };
 
@@ -353,9 +362,12 @@ export default function InboxPage() {
           date: editDate,
           description: editDescription,
           merchant: editMerchant,
+          location: editLocation,
           notes: editNotes,
-          accountId: editAccountId || null,
-          categoryId: editCategoryId || null,
+          accountId: editAccountId,
+          categoryId: editCategoryId,
+          flowType: editFlowType,
+          transferToAccountId: editTransferToAccountId,
         };
 
         const updatedPayload = editingEvent.payload?.parsed
@@ -390,6 +402,7 @@ export default function InboxPage() {
     if (!p.type) missing.push('Type');
     if (!p.description) missing.push('Description');
     if (!p.accountId) missing.push('Account');
+    if (p.type === 'TRANSFER' && !p.transferToAccountId) missing.push('Destination Account');
 
     if (missing.length > 0) {
       toast.error(`Missing required fields: ${missing.join(', ')}. Please edit first.`);
@@ -407,9 +420,12 @@ export default function InboxPage() {
             date: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
             description: p.description,
             merchant: p.merchant || undefined,
+            location: p.location || undefined,
             notes: p.notes || undefined,
             accountId: p.accountId,
             categoryId: p.categoryId || undefined,
+            flowType: p.flowType || undefined,
+            transferToAccountId: p.transferToAccountId || undefined,
           }),
         });
 
@@ -437,6 +453,8 @@ export default function InboxPage() {
   const handleApproveAll = async () => {
     const validEvents = events.filter(event => {
       const p = getParsed(event);
+      const isTransfer = p.type === 'TRANSFER';
+      if (isTransfer && !p.transferToAccountId) return false;
       return p.amount && p.amount > 0 && p.type && p.description && p.accountId;
     });
 
@@ -459,9 +477,12 @@ export default function InboxPage() {
               date: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
               description: p.description,
               merchant: p.merchant || undefined,
+              location: p.location || undefined,
               notes: p.notes || undefined,
               accountId: p.accountId,
               categoryId: p.categoryId || undefined,
+              flowType: p.flowType || undefined,
+              transferToAccountId: p.transferToAccountId || undefined,
             }),
           });
 
@@ -1397,12 +1418,58 @@ export default function InboxPage() {
 
             {/* Merchant */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Merchant</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Merchant / Store</Label>
               <Input
                 placeholder="Store / vendor name"
                 value={editMerchant}
                 onChange={(e) => setEditMerchant(e.target.value)}
               />
+            </div>
+
+            {/* Location */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location</Label>
+              <Input
+                placeholder="City, Area, or Store branch"
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+              />
+            </div>
+
+            {/* Transfer To Account (Only if TRANSFER) */}
+            {editType === 'TRANSFER' && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Transfer To Account</Label>
+                <Select value={editTransferToAccountId} onValueChange={setEditTransferToAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Destination Account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Flow Type */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flow Type</Label>
+              <Select value={editFlowType} onValueChange={setEditFlowType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Flow Type (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {flowTypes.map((ft) => (
+                    <SelectItem key={ft.id} value={ft.id}>
+                      {ft.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Notes */}

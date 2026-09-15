@@ -36,6 +36,9 @@ services:
       AI_URL: ${AI_URL:-http://host.docker.internal:11434/v1/chat/completions}
       AI_KEY: ${AI_KEY:-ollama}
       AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
+      NVIDIA_AI_URL: ${NVIDIA_AI_URL:-https://integrate.api.nvidia.com/v1/chat/completions}
+      NVIDIA_AI_KEY: ${NVIDIA_AI_KEY}
+      NVIDIA_AI_MODEL: ${NVIDIA_AI_MODEL:-meta/llama-3.2-11b-vision-instruct}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
