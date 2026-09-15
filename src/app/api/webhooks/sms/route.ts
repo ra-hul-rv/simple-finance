@@ -135,7 +135,7 @@ export async function POST(request: Request) {
       }),
       prisma.flowType.findMany({
         where: { userId },
-        select: { id: true, name: true, type: true }
+        select: { id: true, name: true, direction: true }
       })
     ]);
 
@@ -188,7 +188,7 @@ User's Accounts (pick one accountId that best matches, or null):
 ${JSON.stringify(accounts.map(a => ({ id: a.id, name: a.name, type: a.type })))}
 
 User's Flow Types (pick one flowType id if applicable, or null):
-${JSON.stringify(flowTypes.map(f => ({ id: f.id, name: f.name, type: f.type })))}
+${JSON.stringify(flowTypes.map(f => ({ id: f.id, name: f.name, direction: f.direction })))}
 
 ${rulesForPrompt.length > 0 ? `The user has saved rules for known merchants/senders. Match the SMS to a rule by its identifier if possible. If a rule matches, use its "note" and "defaults" to fill the fields:
 ${JSON.stringify(rulesForPrompt)}` : ''}

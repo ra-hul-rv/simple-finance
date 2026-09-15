@@ -342,7 +342,7 @@ export async function POST(request: Request) {
       }),
       prisma.flowType.findMany({
         where: { userId },
-        select: { id: true, name: true, type: true },
+        select: { id: true, name: true, direction: true },
       })
     ]);
 
