@@ -48,7 +48,7 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/format';
 import { useFormDraft } from '@/hooks/use-form-draft';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, getRandomColor } from '@/lib/utils';
 
 interface Account {
   id: string;
@@ -254,7 +254,7 @@ export default function UnifiedAccountsPage() {
     setOpeningBalance('0');
     setInterestRate('');
     setCreditLimit('');
-    setColor('#6366f1');
+    setColor(getRandomColor());
     setIcon('wallet');
     setNotes('');
     setCardName('');

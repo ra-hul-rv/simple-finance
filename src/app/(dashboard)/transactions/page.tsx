@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition, Suspense } from 'react';
+import React, { useEffect, useState, useTransition, Suspense, Fragment } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shared/page-header';
 import { CategorySelector } from '@/components/shared/category-selector';
@@ -95,7 +95,7 @@ interface Transaction {
   transferToAccount: { name: string; color: string } | null;
   attachments?: Attachment[];
   personId?: string | null;
-  loanId?: string | null;
+  lendingId?: string | null;
   splitCount?: number | null;
   splitType?: string | null;
   tags?: Tag[];
@@ -164,7 +164,7 @@ function TransactionsPageContent() {
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   
   // Sorting
-  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Advanced filters
@@ -332,7 +332,7 @@ function TransactionsPageContent() {
     }
   }, [accountId, accounts]);
 
-  const toggleSort = (column: 'date' | 'amount' | 'description') => {
+  const toggleSort = (column: 'date' | 'amount' | 'description' | 'category') => {
     if (sortBy === column) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -341,7 +341,7 @@ function TransactionsPageContent() {
     }
   };
 
-  const renderSortIcon = (column: 'date' | 'amount' | 'description') => {
+  const renderSortIcon = (column: 'date' | 'amount' | 'description' | 'category') => {
     if (sortBy !== column) return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50" />;
     return sortOrder === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />;
   };
@@ -452,7 +452,7 @@ function TransactionsPageContent() {
     setCategoryId(tx.categoryId || '');
     setTransferToAccountId(tx.transferToAccountId || '');
     setPersonId(tx.personId || '');
-    setIsLending(!!tx.loanId);
+    setIsLending(!!tx.lendingId);
     setSelectedTagIds(tx.tags?.map(t => t.id) || []);
 
     setSelectedFiles([]);
@@ -903,14 +903,19 @@ function TransactionsPageContent() {
                     Date {renderSortIcon('date')}
                   </TableHead>
                   <TableHead 
-                    className="label-uppercase text-[10px] h-12 cursor-pointer select-none"
+                    className="label-uppercase text-[10px] h-12 cursor-pointer select-none w-[35%] max-w-[35%]"
                     onClick={() => toggleSort('description')}
                   >
                     Description {renderSortIcon('description')}
                   </TableHead>
                   <TableHead className="label-uppercase text-[10px] h-12">Ledger Source</TableHead>
                   <TableHead className="label-uppercase text-[10px] h-12">Location</TableHead>
-                  <TableHead className="label-uppercase text-[10px] h-12">Category</TableHead>
+                  <TableHead 
+                    className="label-uppercase text-[10px] h-12 cursor-pointer select-none"
+                    onClick={() => toggleSort('category')}
+                  >
+                    Category {renderSortIcon('category')}
+                  </TableHead>
                   {showAttachmentsOnList && <TableHead className="label-uppercase text-[10px] h-12">Receipt</TableHead>}
                   <TableHead 
                     className="text-right label-uppercase text-[10px] pr-6 h-12 cursor-pointer select-none"
@@ -922,30 +927,63 @@ function TransactionsPageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.id} className="border-border/20 hover:bg-accent/15 transition-colors">
-                    <TableCell className="text-xs text-muted-foreground pl-6 font-medium">
-                      {formatDate(tx.date, 'dd/MM/yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-semibold text-sm text-foreground">{tx.description}</div>
-                      {tx.merchant && (
-                        <div className="text-[10px] text-muted-foreground mt-0.5 font-medium">{tx.merchant}</div>
-                      )}
-                      {tx.tags && tx.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {tx.tags.map((tag: any) => (
-                            <span
-                              key={tag.id}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-border/30 bg-background/50"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
-                              {tag.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
+                {(() => {
+                  let currentDate = '';
+                  let isAlt = false;
+
+                  return transactions.map((tx, index) => {
+                    const txDate = tx.date.split('T')[0];
+                    if (txDate !== currentDate) {
+                      currentDate = txDate;
+                      isAlt = !isAlt;
+                    }
+
+                    let isNewMonth = false;
+                    if (index > 0) {
+                      const prevDate = new Date(transactions[index - 1].date);
+                      const currDate = new Date(tx.date);
+                      if (prevDate.getMonth() !== currDate.getMonth() || prevDate.getFullYear() !== currDate.getFullYear()) {
+                        isNewMonth = true;
+                      }
+                    }
+
+                    return (
+                      <Fragment key={tx.id}>
+                        {isNewMonth && (
+                          <TableRow className="border-none hover:bg-transparent bg-transparent">
+                            <TableCell colSpan={showAttachmentsOnList ? 8 : 7} className="p-0">
+                              <div className="h-0.5 w-full bg-foreground/10 my-1"></div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow 
+                          className={cn(
+                            "border-border/10 transition-colors", 
+                            isAlt ? "bg-muted/30 hover:bg-muted/50" : "bg-transparent hover:bg-muted/20"
+                          )}
+                        >
+                          <TableCell className="text-xs text-muted-foreground pl-6 font-medium whitespace-nowrap">
+                            {formatDate(tx.date, 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell className="w-[35%] max-w-[35%] min-w-[200px] break-words whitespace-normal text-wrap">
+                            <div className="font-semibold text-sm text-foreground text-wrap break-words">{tx.description}</div>
+                            {tx.merchant && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5 font-medium text-wrap break-words">{tx.merchant}</div>
+                            )}
+                            {tx.tags && tx.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {tx.tags.map((tag: any) => (
+                                  <span
+                                    key={tag.id}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-border/30 bg-background/50"
+                                  >
+                                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                                    {tag.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </TableCell>
                     <TableCell className="text-xs font-semibold">
                       {tx.type === 'TRANSFER' || tx.type === 'CREDIT_CARD_PAYMENT' ? (
                         <span className="flex items-center gap-1.5">
@@ -1067,7 +1105,9 @@ function TransactionsPageContent() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                </Fragment>
+              );
+            })})()}
                 {transactions.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={showAttachmentsOnList ? 8 : 7} className="text-center py-16 text-sm text-muted-foreground border-0">
@@ -1469,7 +1509,7 @@ function TransactionsPageContent() {
                     id="isLending" 
                     checked={isLending} 
                     onCheckedChange={(checked) => setIsLending(!!checked)}
-                    disabled={isPending || Boolean(editingTransaction?.loanId)}
+                    disabled={isPending || Boolean(editingTransaction?.lendingId)}
                   />
                   <label
                     htmlFor="isLending"

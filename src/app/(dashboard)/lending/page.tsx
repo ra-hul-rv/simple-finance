@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition, useMemo } from 'react';
+import { cn, getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -214,7 +215,7 @@ export default function LendingPage() {
     setInterestRate('');
     setNotes('');
     setAccountId(accounts[0]?.id || '');
-    setColor(type === 'LENT' ? '#f97316' : '#a855f7');
+    setColor(getRandomColor());
     setIsDialogOpen(true);
   };
 

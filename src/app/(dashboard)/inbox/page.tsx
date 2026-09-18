@@ -52,6 +52,7 @@ import {
   Search,
   StickyNote,
   Tag,
+  ArrowUpDown,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toast } from 'sonner';
@@ -128,6 +129,12 @@ export default function InboxPage() {
 
   // AI Engine Provider State (persisted in DB UserSettings)
   const [aiProvider, setAiProvider] = useState<'local' | 'nvidia'>('local');
+
+  // Inbox Filter & Sort State
+  const [eventSearch, setEventSearch] = useState('');
+  const [eventSortField, setEventSortField] = useState<'date' | 'amount' | 'createdAt'>('createdAt');
+  const [eventSortDir, setEventSortDir] = useState<'asc' | 'desc'>('desc');
+  const [eventTypeFilter, setEventTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER'>('ALL');
 
   // AI Rules & Notes State
   const [rules, setRules] = useState<SmsRule[]>([]);
@@ -451,7 +458,7 @@ export default function InboxPage() {
 
   // ─── Batch Approve All Valid ───────────────────────────
   const handleApproveAll = async () => {
-    const validEvents = events.filter(event => {
+    const validEvents = filteredAndSortedEvents.filter(event => {
       const p = getParsed(event);
       const isTransfer = p.type === 'TRANSFER';
       if (isTransfer && !p.transferToAccountId) return false;
@@ -578,8 +585,55 @@ export default function InboxPage() {
     );
   }
 
-  const validPendingCount = events.filter(e => {
+  const filteredAndSortedEvents = useMemo(() => {
+    let result = [...events];
+    
+    if (eventTypeFilter !== 'ALL') {
+      result = result.filter(e => getParsed(e).type === eventTypeFilter);
+    }
+
+    if (eventSearch.trim()) {
+      const q = eventSearch.toLowerCase();
+      result = result.filter(e => {
+        const p = getParsed(e);
+        return (
+          String(p.description || '').toLowerCase().includes(q) ||
+          String(p.merchant || '').toLowerCase().includes(q) ||
+          String(e.payload?.rawMessage || '').toLowerCase().includes(q)
+        );
+      });
+    }
+
+    result.sort((a, b) => {
+      const pA = getParsed(a);
+      const pB = getParsed(b);
+      
+      let valA: any;
+      let valB: any;
+
+      if (eventSortField === 'date') {
+        valA = new Date(pA.date || a.createdAt).getTime();
+        valB = new Date(pB.date || b.createdAt).getTime();
+      } else if (eventSortField === 'amount') {
+        valA = Number(pA.amount || 0);
+        valB = Number(pB.amount || 0);
+      } else {
+        valA = new Date(a.createdAt).getTime();
+        valB = new Date(b.createdAt).getTime();
+      }
+
+      if (valA < valB) return eventSortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return eventSortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [events, eventSearch, eventTypeFilter, eventSortField, eventSortDir]);
+
+  const validPendingCount = filteredAndSortedEvents.filter(e => {
     const p = getParsed(e);
+    const isTransfer = p.type === 'TRANSFER';
+    if (isTransfer && !p.transferToAccountId) return false;
     return p.amount && p.amount > 0 && p.type && p.description && p.accountId;
   }).length;
 
@@ -747,6 +801,53 @@ export default function InboxPage() {
             </div>
           </div>
 
+          {/* Filter & Sort Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
+            <div className="flex w-full sm:w-auto items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground ml-1" />
+              <Input
+                placeholder="Search description, merchant, or raw text..."
+                value={eventSearch}
+                onChange={(e) => setEventSearch(e.target.value)}
+                className="w-full sm:w-64 h-8 text-sm"
+              />
+            </div>
+            <div className="flex w-full sm:w-auto items-center gap-2">
+              <Select value={eventTypeFilter} onValueChange={(val: any) => setEventTypeFilter(val)}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Types</SelectItem>
+                  <SelectItem value="EXPENSE">Expense</SelectItem>
+                  <SelectItem value="INCOME">Income</SelectItem>
+                  <SelectItem value="TRANSFER">Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={eventSortField} onValueChange={(val: any) => setEventSortField(val)}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Created Date</SelectItem>
+                  <SelectItem value="date">Transaction Date</SelectItem>
+                  <SelectItem value="amount">Amount</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEventSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="h-8 w-8 p-0"
+                title="Toggle Sort Direction"
+              >
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </div>
+          </div>
+
           <Card className="border-border bg-card overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -765,8 +866,18 @@ export default function InboxPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {events.map((event) => {
-                      const p = getParsed(event);
+                    {filteredAndSortedEvents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-24 text-center">
+                          <div className="flex flex-col items-center justify-center text-muted-foreground">
+                            <Search className="h-8 w-8 mb-2 opacity-20" />
+                            <p>No transactions match your filters.</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredAndSortedEvents.map((event) => {
+                        const p = getParsed(event);
                       const rawMsg = event.payload?.rawMessage;
                       const isStatement = event.source === 'statement_import';
 
@@ -916,7 +1027,8 @@ export default function InboxPage() {
                           </TableCell>
                         </TableRow>
                       );
-                    })}
+                    })
+                  )}
                   </TableBody>
                 </Table>
               </div>
@@ -1343,7 +1455,7 @@ export default function InboxPage() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Type <span className="text-destructive">*</span>
               </Label>
-              <Select value={editType} onValueChange={setEditType}>
+              <Select value={editType || undefined} onValueChange={setEditType}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1365,7 +1477,7 @@ export default function InboxPage() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Account <span className="text-destructive">*</span>
               </Label>
-              <Select value={editAccountId} onValueChange={setEditAccountId}>
+              <Select value={editAccountId || undefined} onValueChange={setEditAccountId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Account" />
                 </SelectTrigger>
@@ -1384,7 +1496,7 @@ export default function InboxPage() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Category
               </Label>
-              <Select value={editCategoryId} onValueChange={setEditCategoryId}>
+              <Select value={editCategoryId || undefined} onValueChange={setEditCategoryId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Category (optional)" />
                 </SelectTrigger>
@@ -1440,7 +1552,7 @@ export default function InboxPage() {
             {editType === 'TRANSFER' && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Transfer To Account</Label>
-                <Select value={editTransferToAccountId} onValueChange={setEditTransferToAccountId}>
+                <Select value={editTransferToAccountId || undefined} onValueChange={setEditTransferToAccountId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Destination Account" />
                   </SelectTrigger>
@@ -1458,7 +1570,7 @@ export default function InboxPage() {
             {/* Flow Type */}
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Flow Type</Label>
-              <Select value={editFlowType} onValueChange={setEditFlowType}>
+              <Select value={editFlowType || undefined} onValueChange={setEditFlowType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Flow Type (optional)" />
                 </SelectTrigger>
@@ -1568,7 +1680,7 @@ export default function InboxPage() {
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Default Type
                 </Label>
-                <Select value={ruleDefaultType} onValueChange={setRuleDefaultType}>
+                <Select value={ruleDefaultType || undefined} onValueChange={setRuleDefaultType}>
                   <SelectTrigger className="text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -1586,7 +1698,7 @@ export default function InboxPage() {
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Default Account
                 </Label>
-                <Select value={ruleDefaultAccountId} onValueChange={setRuleDefaultAccountId}>
+                <Select value={ruleDefaultAccountId || undefined} onValueChange={setRuleDefaultAccountId}>
                   <SelectTrigger className="text-xs">
                     <SelectValue placeholder="Auto-determine" />
                   </SelectTrigger>
@@ -1607,7 +1719,7 @@ export default function InboxPage() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Default Category
               </Label>
-              <Select value={ruleDefaultCategoryId} onValueChange={setRuleDefaultCategoryId}>
+              <Select value={ruleDefaultCategoryId || undefined} onValueChange={setRuleDefaultCategoryId}>
                 <SelectTrigger className="text-xs">
                   <SelectValue placeholder="Auto-determine" />
                 </SelectTrigger>

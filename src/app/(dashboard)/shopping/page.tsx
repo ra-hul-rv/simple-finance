@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { cn, getRandomColor } from '@/lib/utils';
 import { 
   ShoppingBag, 
   Plus, 
@@ -169,7 +170,7 @@ export default function ShoppingPage() {
           setLists([newList, ...lists]);
           setSelectedListId(newList.id);
           setNewListName('');
-          setNewListColor('#ec4899');
+          setNewListColor(getRandomColor());
           setIsNewListOpen(false);
         } else {
           const err = await res.json();
@@ -387,7 +388,7 @@ export default function ShoppingPage() {
             Build itemized purchase lists, calculate estimated totals, and convert checked expenses directly to your financial ledger.
           </p>
         </div>
-        <Button onClick={() => setIsNewListOpen(true)} className="rounded-xl h-10 gap-2 font-semibold">
+        <Button onClick={() => { setNewListColor(getRandomColor()); setIsNewListOpen(true); }} className="rounded-xl h-10 gap-2 font-semibold">
           <FolderPlus className="h-4 w-4" />
           Create Shopping List
         </Button>
@@ -647,7 +648,7 @@ export default function ShoppingPage() {
                 <p className="text-xs text-muted-foreground mt-1 mb-6 max-w-sm">
                   Select a shopping list from the sidebar or click the button below to create a new purchase list.
                 </p>
-                <Button onClick={() => setIsNewListOpen(true)} className="rounded-xl h-10">
+                <Button onClick={() => { setNewListColor(getRandomColor()); setIsNewListOpen(true); }} className="rounded-xl h-10">
                   Create Shopping List
                 </Button>
               </div>

@@ -31,8 +31,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-simplefinance}:${POSTGRES_PASSWORD:-simplefinance_secret}@db:5432/${POSTGRES_DB:-simplefinance}
       AUTH_SECRET: ${AUTH_SECRET}
-      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: ${AUTH_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
       AI_URL: ${AI_URL:-http://host.docker.internal:11434/v1/chat/completions}
       AI_KEY: ${AI_KEY:-ollama}
       AI_MODEL: ${AI_MODEL:-qwen2.5:3b}

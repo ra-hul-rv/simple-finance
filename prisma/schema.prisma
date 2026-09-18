@@ -133,6 +133,7 @@ model User {
   people                Person[]
   emis                  Emi[]
   smsRules              SmsRule[]
+  externalSpends        ExternalSpend[]
 }
 
 model UserSettings {
@@ -294,6 +295,7 @@ model Category {
   subscriptions         Subscription[]
   upiTemplates          UpiTemplate[]
   smsRules              SmsRule[]
+  externalSpends        ExternalSpend[]
 
   @@index([userId])
   @@index([parentId])
@@ -319,6 +321,7 @@ model Tag {
   userId       String
   user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions TransactionTag[]
+  externalSpends ExternalSpend[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -331,6 +334,28 @@ model TransactionTag {
   tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([transactionId, tagId])
+}
+
+model ExternalSpend {
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  amount      Decimal  @db.Decimal(15, 2)
+  description String
+  personName  String
+  merchant    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tagId      String
+  tag        Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tagId])
+  @@index([userId])
 }
 
 model RecurringTransaction {

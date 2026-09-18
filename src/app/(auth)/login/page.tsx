@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { signIn } from 'next-auth/react';
-import { useState, useTransition, Suspense } from 'react';
+import { useState, useTransition, Suspense, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,28 @@ function LoginForm() {
   const callbackUrl = searchParams.get('callbackUrl') || '/';
   const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const [isLocalHost, setIsLocalHost] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0';
+      if (isLocal) {
+        setIsLocalHost(true);
+        startTransition(async () => {
+          try {
+            const result = await signIn('local', { redirect: false });
+            if (!result?.error) {
+              router.push(callbackUrl);
+              router.refresh();
+            }
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
+    }
+  }, [callbackUrl, router]);
 
   const {
     register,
@@ -63,6 +85,17 @@ function LoginForm() {
       }
     });
   };
+
+  if (isLocalHost) {
+    return (
+      <Card className="relative overflow-hidden border-border bg-card animate-fade-up">
+        <CardContent className="pt-6 flex flex-col items-center justify-center space-y-4 min-h-[300px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground text-sm font-medium animate-pulse">Auto-authenticating local session...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="relative overflow-hidden border-border bg-card animate-fade-up">

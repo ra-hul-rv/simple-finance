@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { cn, getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -223,7 +224,7 @@ export default function CategoriesPage() {
   const handleOpenAddDialog = (parentCatId: string | null = null) => {
     setEditingCategory(null);
     setName('');
-    setColor(parentCatId ? categories.find(c => c.id === parentCatId)?.color || '#f97316' : '#f97316');
+    setColor(parentCatId ? categories.find(c => c.id === parentCatId)?.color || getRandomColor() : getRandomColor());
     setIcon('tag');
     setBudgetAmount('');
     setParentId(parentCatId);
@@ -300,7 +301,7 @@ export default function CategoriesPage() {
   const handleOpenAddTag = () => {
     setEditingTag(null);
     setTagName('');
-    setTagColor('#6366f1');
+    setTagColor(getRandomColor());
     setIsTagDialogOpen(true);
   };
 

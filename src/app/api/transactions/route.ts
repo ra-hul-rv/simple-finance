@@ -94,7 +94,7 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    const allowedSortFields = ['date', 'amount', 'description', 'createdAt'];
+    const allowedSortFields = ['date', 'amount', 'description', 'createdAt', 'category'];
     const rawSortBy = searchParams.get('sortBy') || 'date';
     const sortBy = allowedSortFields.includes(rawSortBy) ? rawSortBy : 'date';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
@@ -155,7 +155,7 @@ export async function GET(request: Request) {
             },
           },
         },
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: sortBy === 'category' ? { category: { name: sortOrder } } : { [sortBy]: sortOrder },
         skip,
         take: limit,
       }),
@@ -258,6 +258,27 @@ export async function POST(request: Request) {
 
     // Run transaction and account balance updates in an atomic Prisma transaction
     const transaction = await prisma.$transaction(async (tx: any) => {
+      let finalLendingId = null;
+      if (validated.isLending && validated.personId) {
+        const person = await tx.person.findUnique({ where: { id: validated.personId } });
+        if (person) {
+          const lendingType = (validated.type === 'INCOME' || validated.type === 'REFUND' || validated.type === 'INTEREST' || validated.type === 'DIVIDEND') ? 'BORROWED' : 'LENT';
+          const lending = await tx.lending.create({
+            data: {
+              type: lendingType,
+              personName: person.name,
+              personId: person.id,
+              totalAmount: validated.amount,
+              outstandingBalance: validated.amount,
+              notes: validated.description,
+              userId,
+              accountId: validated.accountId,
+            }
+          });
+          finalLendingId = lending.id;
+        }
+      }
+
       // 1. Create the transaction record
       const createdTx = await tx.transaction.create({
         data: {
@@ -276,6 +297,7 @@ export async function POST(request: Request) {
           splitCount: validated.splitCount || null,
           splitType: validated.splitType || null,
           subAccountId: validated.subAccountId || null,
+          lendingId: finalLendingId,
           userId,
         },
       });
@@ -347,28 +369,6 @@ export async function POST(request: Request) {
         }
       }
 
-      // 4. Auto-create Loan if isLending is true
-      if (validated.isLending && validated.personId) {
-        const person = await tx.person.findUnique({ where: { id: validated.personId } });
-        if (person) {
-          const loan = await tx.loan.create({
-            data: {
-              borrowerName: person.name,
-              totalLent: validated.amount,
-              outstandingBalance: validated.amount,
-              status: 'ACTIVE',
-              userId,
-              personId: person.id,
-              accountId: validated.accountId,
-            }
-          });
-          
-          await tx.transaction.update({
-            where: { id: createdTx.id },
-            data: { loanId: loan.id }
-          });
-        }
-      }
 
       await syncCreditCardBalances(validated.accountId, tx);
       if (validated.transferToAccountId) {

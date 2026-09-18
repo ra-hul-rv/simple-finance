@@ -178,12 +178,15 @@ export function EmisTab() {
     });
   };
 
-  const handleOpenPaymentDialog = (paymentId: string, personId: string | null) => {
+  const [paymentAmount, setPaymentAmount] = useState('');
+
+  const handleOpenPaymentDialog = (paymentId: string, personId: string | null, amount: number) => {
     setSelectedPaymentId(paymentId);
     setSelectedEmiPersonId(personId);
     setPaymentSource('SELF');
     setPaymentSourceAccountId(accounts.find(a => ['SAVINGS', 'CURRENT', 'CASH', 'OTHER'].includes(a.type))?.id || '');
     setPaymentDate(new Date().toISOString().split('T')[0]);
+    setPaymentAmount(amount.toString());
     setIsPaymentDialogOpen(true);
   };
 
@@ -198,6 +201,7 @@ export function EmisTab() {
           paidDate: new Date(paymentDate).toISOString(),
           paymentSource,
           sourceAccountId: paymentSourceAccountId,
+          amount: parseFloat(paymentAmount),
         }),
       });
 
@@ -429,7 +433,7 @@ export function EmisTab() {
                                             size="sm" 
                                             variant="secondary"
                                             className="h-8 text-xs font-semibold"
-                                            onClick={() => handleOpenPaymentDialog(payment.id, emi.personId)}
+                                            onClick={() => handleOpenPaymentDialog(payment.id, emi.personId, payment.amount)}
                                           >
                                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Mark Paid
                                           </Button>
@@ -680,6 +684,16 @@ export function EmisTab() {
                 value={paymentDate} 
                 onChange={(e) => setPaymentDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Payment Amount</Label>
+              <Input 
+                type="number" 
+                value={paymentAmount} 
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="Enter amount"
               />
             </div>
 

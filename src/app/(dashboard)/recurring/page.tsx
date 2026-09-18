@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { cn, getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { CategorySelector } from '@/components/shared/category-selector';
 import { StatCard } from '@/components/shared/stat-card';
@@ -41,7 +42,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { cn } from '@/lib/utils';
+
 import { useFormDraft } from '@/hooks/use-form-draft';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 
@@ -276,7 +277,7 @@ export default function BillsAndRecurringPage() {
     setCategoryId('');
     setDescription('');
     setUrl('');
-    setColor('#6366f1');
+    setColor(getRandomColor());
     setIsDialogOpen(true);
   };
 

@@ -26,6 +26,8 @@ const updateTransactionSchema = z.object({
   transferToAccountId: z.string().uuid().optional().nullable(),
   splitCount: z.number().int().min(1).optional().nullable(),
   splitType: z.enum(['MULTIPLY', 'DIVIDE']).optional().nullable(),
+  personId: z.string().uuid('Invalid person ID').optional().nullable(),
+  isLending: z.boolean().optional().default(false),
   tags: z.array(z.string()).optional().default([]),
 });
 
@@ -245,6 +247,7 @@ export async function PUT(
           transferToAccountId: validated.transferToAccountId || null,
           splitCount: validated.splitCount || null,
           splitType: validated.splitType || null,
+          personId: validated.personId || null,
         },
       });
 

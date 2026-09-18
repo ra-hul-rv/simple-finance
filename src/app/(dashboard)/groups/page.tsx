@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition, useMemo } from 'react';
+import { getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,17 @@ interface TagTransaction {
   splitType?: string | null;
 }
 
+interface ExternalSpend {
+  id: string;
+  date: string;
+  amount: number;
+  description: string;
+  personName: string;
+  merchant: string | null;
+  notes: string | null;
+  category: { id: string; name: string; color: string; parent: { name: string } | null } | null;
+}
+
 interface TagGroup {
   id: string;
   name: string;
@@ -89,11 +101,15 @@ interface TagGroup {
   transactionCount: number;
   totalIncome: number;
   totalExpense: number;
+  totalExternalSpend?: number;
+  totalGroupSpend?: number;
   netAmount: number;
   amountYouOwe?: number;
   amountYouAreOwed?: number;
   categoryBreakdown: CategoryBreakdown[];
+  externalCategoryBreakdown?: CategoryBreakdown[];
   transactions?: TagTransaction[];
+  externalSpends?: ExternalSpend[];
 }
 
 type SortField = 'name' | 'totalExpense' | 'createdAt' | 'transactionCount';
@@ -135,13 +151,29 @@ export default function GroupsPage() {
   const [splitCountForm, setSplitCountForm] = useState('');
   const [splitTypeForm, setSplitTypeForm] = useState<'MULTIPLY' | 'DIVIDE'>('DIVIDE');
 
+  // External Spend
+  const [categories, setCategories] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [esDialogOpen, setEsDialogOpen] = useState(false);
+  const [editingEs, setEditingEs] = useState<ExternalSpend | null>(null);
+  const [esPersonName, setEsPersonName] = useState('');
+  const [esDescription, setEsDescription] = useState('');
+  const [esAmount, setEsAmount] = useState('');
+  const [esDate, setEsDate] = useState('');
+  const [esCategoryId, setEsCategoryId] = useState('');
+  const [esMerchant, setEsMerchant] = useState('');
+  const [esNotes, setEsNotes] = useState('');
+
   const [isPending, startTransition] = useTransition();
 
   const fetchTags = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/tags?details=false');
-      if (res.ok) setTags(await res.json());
+      const [tagsRes, catsRes] = await Promise.all([
+        fetch('/api/tags?details=false'),
+        fetch('/api/categories'),
+      ]);
+      if (tagsRes.ok) setTags(await tagsRes.json());
+      if (catsRes.ok) setCategories((await catsRes.json()).filter((c: any) => c.isActive));
     } catch {
       toast.error('Failed to load groups');
     } finally {
@@ -150,6 +182,98 @@ export default function GroupsPage() {
   };
 
   useEffect(() => { fetchTags(); }, []);
+
+  // External Spend Handlers
+  const handleOpenEsDialog = (es?: ExternalSpend) => {
+    if (es) {
+      setEditingEs(es);
+      setEsPersonName(es.personName);
+      setEsDescription(es.description);
+      setEsAmount(String(es.amount));
+      setEsDate(String(es.date).split('T')[0]);
+      setEsCategoryId(es.category?.id || '');
+      setEsMerchant(es.merchant || '');
+      setEsNotes(es.notes || '');
+    } else {
+      setEditingEs(null);
+      setEsPersonName('');
+      setEsDescription('');
+      setEsAmount('');
+      setEsDate(new Date().toISOString().split('T')[0]);
+      setEsCategoryId('');
+      setEsMerchant('');
+      setEsNotes('');
+    }
+    setEsDialogOpen(true);
+  };
+
+  const handleSaveEs = async () => {
+    if (!esPersonName.trim() || !esDescription.trim() || !esAmount.trim()) {
+      toast.error('Person Name, Description, and Amount are required');
+      return;
+    }
+    if (!expandedId) return;
+
+    startTransition(async () => {
+      try {
+        if (editingEs) {
+          // Update
+          const res = await fetch(`/api/tags/external-spends/${editingEs.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              personName: esPersonName,
+              description: esDescription,
+              amount: parseFloat(esAmount),
+              date: esDate || new Date().toISOString(),
+              categoryId: esCategoryId || null,
+              merchant: esMerchant || null,
+              notes: esNotes || null,
+            }),
+          });
+          if (!res.ok) throw new Error('Failed to update');
+          toast.success('External spend updated');
+        } else {
+          // Create
+          const res = await fetch('/api/tags/external-spends', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tagId: expandedId,
+              personName: esPersonName,
+              description: esDescription,
+              amount: parseFloat(esAmount),
+              date: esDate || new Date().toISOString(),
+              categoryId: esCategoryId || null,
+              merchant: esMerchant || null,
+              notes: esNotes || null,
+            }),
+          });
+          if (!res.ok) throw new Error('Failed to create');
+          toast.success('External spend added');
+        }
+        setEsDialogOpen(false);
+        // Refresh expanded data
+        handleExpand(expandedId, true);
+      } catch (e: any) {
+        toast.error(e.message || 'Failed to save');
+      }
+    });
+  };
+
+  const handleDeleteEs = async (esId: string) => {
+    if (!expandedId) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/tags/external-spends/${esId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete');
+        toast.success('External spend removed');
+        handleExpand(expandedId, true);
+      } catch {
+        toast.error('Failed to delete external spend');
+      }
+    });
+  };
 
   const handleExpand = async (id: string, forceOpen?: boolean) => {
     if (expandedId === id && !forceOpen) {
@@ -172,7 +296,7 @@ export default function GroupsPage() {
   // ── Form handlers ──
   const resetForm = () => {
     setFormName('');
-    setFormColor('#6366f1');
+    setFormColor(getRandomColor());
     setFormDescription('');
     setFormBudget('');
     setFormPeopleCount('');
@@ -674,25 +798,57 @@ export default function GroupsPage() {
                           {/* Category Breakdown + Summary */}
                           <div className="grid gap-4 md:grid-cols-2">
                             {/* Category bars */}
-                            {expandedData.categoryBreakdown.length > 0 && (
+                            {(expandedData.categoryBreakdown.length > 0 || (expandedData.externalCategoryBreakdown && expandedData.externalCategoryBreakdown.length > 0)) && (
                               <Card className="glass-card">
                                 <CardContent className="p-4">
                                   <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Category Breakdown</h5>
-                                  <div className="space-y-2.5">
-                                    {expandedData.categoryBreakdown.map((cb) => {
-                                      const pct = expandedData.totalExpense > 0 ? (cb.amount / expandedData.totalExpense) * 100 : 0;
-                                      return (
-                                        <div key={cb.name} className="space-y-1">
-                                          <div className="flex items-center justify-between text-xs">
-                                            <span className="font-semibold text-foreground">{cb.name}</span>
-                                            <span className="font-bold text-foreground">{formatCurrency(cb.amount)}</span>
-                                          </div>
-                                          <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(3, pct)}%`, backgroundColor: cb.color }} />
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                  
+                                  <div className="space-y-4">
+                                    {expandedData.categoryBreakdown.length > 0 && (
+                                      <div className="space-y-2.5">
+                                        {(expandedData.externalCategoryBreakdown?.length || 0) > 0 && (
+                                          <div className="text-[10px] uppercase font-bold text-muted-foreground">Your Spends</div>
+                                        )}
+                                        {expandedData.categoryBreakdown.map((cb) => {
+                                          const pct = expandedData.totalExpense > 0 ? (cb.amount / expandedData.totalExpense) * 100 : 0;
+                                          return (
+                                            <div key={`y-${cb.name}`} className="space-y-1">
+                                              <div className="flex items-center justify-between text-xs">
+                                                <span className="font-semibold text-foreground">{cb.name}</span>
+                                                <span className="font-bold text-foreground">{formatCurrency(cb.amount)}</span>
+                                              </div>
+                                              <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(3, pct)}%`, backgroundColor: cb.color }} />
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+
+                                    {expandedData.externalCategoryBreakdown && expandedData.externalCategoryBreakdown.length > 0 && (
+                                      <div className="space-y-2.5">
+                                        {expandedData.categoryBreakdown.length > 0 && (
+                                          <div className="text-[10px] uppercase font-bold text-muted-foreground pt-2">Others&apos; Spends</div>
+                                        )}
+                                        {expandedData.externalCategoryBreakdown.map((cb) => {
+                                          const pct = expandedData.totalExternalSpend && expandedData.totalExternalSpend > 0 
+                                            ? (cb.amount / expandedData.totalExternalSpend) * 100 
+                                            : 0;
+                                          return (
+                                            <div key={`e-${cb.name}`} className="space-y-1">
+                                              <div className="flex items-center justify-between text-xs">
+                                                <span className="font-semibold text-muted-foreground">{cb.name}</span>
+                                                <span className="font-bold text-muted-foreground">{formatCurrency(cb.amount)}</span>
+                                              </div>
+                                              <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all duration-500 opacity-60" style={{ width: `${Math.max(3, pct)}%`, backgroundColor: cb.color }} />
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 </CardContent>
                               </Card>
@@ -704,9 +860,21 @@ export default function GroupsPage() {
                                 <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Financial Summary</h5>
                                 <div className="space-y-3">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">Total Expense</span>
+                                    <span className="text-xs text-muted-foreground">Your Expense</span>
                                     <span className="text-sm font-bold text-red-400">{formatCurrency(expandedData.totalExpense)}</span>
                                   </div>
+                                  {(expandedData.totalExternalSpend ?? 0) > 0 && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-muted-foreground">Others&apos; Spends</span>
+                                      <span className="text-sm font-bold text-blue-400">{formatCurrency(expandedData.totalExternalSpend!)}</span>
+                                    </div>
+                                  )}
+                                  {(expandedData.totalGroupSpend ?? 0) > expandedData.totalExpense && (
+                                    <div className="flex items-center justify-between bg-muted/30 p-2 rounded border border-border/30">
+                                      <span className="text-xs font-semibold text-foreground">Total Group Spend</span>
+                                      <span className="text-sm font-bold text-foreground">{formatCurrency(expandedData.totalGroupSpend!)}</span>
+                                    </div>
+                                  )}
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">Total Income / Splits Received</span>
                                     <span className="text-sm font-bold text-emerald-400">{formatCurrency(expandedData.totalIncome)}</span>
@@ -828,6 +996,77 @@ export default function GroupsPage() {
                               <p className="text-[10px] text-muted-foreground mt-1">Tag transactions with &quot;{expandedData.name}&quot; from the Transactions page.</p>
                             </div>
                           )}
+                          {/* Others' Spends List */}
+                          <div className="pt-2 border-t border-border/20">
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                Others&apos; Spends ({expandedData.externalSpends?.length || 0})
+                              </h5>
+                              <Button size="sm" variant="outline" className="h-7 text-xs bg-muted/20" onClick={() => handleOpenEsDialog()}>
+                                <Plus className="h-3 w-3 mr-1" /> Add Spend
+                              </Button>
+                            </div>
+                            
+                            {expandedData.externalSpends && expandedData.externalSpends.length > 0 ? (
+                              <div className="glass-card rounded-xl overflow-hidden border border-border/20">
+                                <Table>
+                                  <TableHeader className="bg-muted/10">
+                                    <TableRow>
+                                      <TableHead className="text-xs font-semibold py-2">Date</TableHead>
+                                      <TableHead className="text-xs font-semibold py-2">Person</TableHead>
+                                      <TableHead className="text-xs font-semibold py-2">Description</TableHead>
+                                      <TableHead className="text-xs font-semibold py-2">Category</TableHead>
+                                      <TableHead className="text-xs font-semibold text-right py-2">Amount</TableHead>
+                                      <TableHead className="text-xs font-semibold py-2 w-[70px]"></TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {expandedData.externalSpends.map((es) => (
+                                      <TableRow key={es.id} className="hover:bg-muted/40">
+                                        <TableCell className="py-2 text-xs font-medium">{formatDate(es.date)}</TableCell>
+                                        <TableCell className="py-2 text-xs font-semibold">{es.personName}</TableCell>
+                                        <TableCell className="py-2 text-xs">
+                                          {es.description}
+                                          {es.merchant && <span className="text-muted-foreground ml-1">· {es.merchant}</span>}
+                                        </TableCell>
+                                        <TableCell className="py-2 text-xs">
+                                          {es.category ? (
+                                            <span className="flex items-center gap-1.5">
+                                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: es.category.color }} />
+                                              {es.category.parent ? `${es.category.parent.name} > ` : ''}{es.category.name}
+                                            </span>
+                                          ) : (
+                                            <span className="text-muted-foreground">—</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="py-2 text-xs font-bold text-right text-blue-400">
+                                          {formatCurrency(es.amount)}
+                                        </TableCell>
+                                        <TableCell className="py-2 text-right">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEsDialog(es)}>
+                                              <Edit2 className="h-3 w-3" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-400" onClick={() => handleDeleteEs(es.id)}>
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 glass-card rounded-xl border-dashed border-2 border-border/20">
+                                <Users className="h-5 w-5 mx-auto text-muted-foreground/50 mb-1" />
+                                <p className="text-[11px] text-muted-foreground">Track expenses paid by others for this group here.</p>
+                                <p className="text-[10px] text-muted-foreground/70 mt-0.5">These won&apos;t affect your personal account balances.</p>
+                              </div>
+                            )}
+                          </div>
+
                         </div>
                       ) : null}
                     </div>
@@ -980,6 +1219,79 @@ export default function GroupsPage() {
               </Button>
               <Button type="submit" disabled={isPending} className="h-9 text-xs gradient-primary">
                 {isPending ? 'Saving...' : 'Save Split'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── External Spend Dialog ── */}
+      <Dialog open={esDialogOpen} onOpenChange={setEsDialogOpen}>
+        <DialogContent className="form-spacious glass-dialog sm:max-w-[500px]">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveEs(); }} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold text-foreground">
+                {editingEs ? 'Edit Spend' : 'Add Spend'}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Log an expense made by someone else for this group.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-3 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Person Name *</Label>
+                  <Input placeholder="e.g. Rahul" value={esPersonName} onChange={(e) => setEsPersonName(e.target.value)} className="h-9 text-xs" required />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Amount *</Label>
+                  <Input type="number" step="0.01" placeholder="e.g. 500" value={esAmount} onChange={(e) => setEsAmount(e.target.value)} className="h-9 text-xs" required />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Description *</Label>
+                <Input placeholder="e.g. Dinner at absolute barbecue" value={esDescription} onChange={(e) => setEsDescription(e.target.value)} className="h-9 text-xs" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Category</Label>
+                  <Select value={esCategoryId} onValueChange={setEsCategoryId}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {categories.filter(c => c.type === 'EXPENSE').map(c => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Date</Label>
+                  <Input type="date" value={esDate} onChange={(e) => setEsDate(e.target.value)} className="h-9 text-xs" required />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Merchant (optional)</Label>
+                <Input placeholder="e.g. Absolute Barbecue" value={esMerchant} onChange={(e) => setEsMerchant(e.target.value)} className="h-9 text-xs" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Notes (optional)</Label>
+                <Textarea placeholder="Any additional details..." value={esNotes} onChange={(e) => setEsNotes(e.target.value)} className="min-h-[60px] text-xs resize-none" />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEsDialogOpen(false)} className="h-9 text-xs">Cancel</Button>
+              <Button type="submit" disabled={isPending} className="h-9 text-xs gradient-primary font-semibold">
+                {isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {editingEs ? 'Save Changes' : 'Add Spend'}
               </Button>
             </DialogFooter>
           </form>

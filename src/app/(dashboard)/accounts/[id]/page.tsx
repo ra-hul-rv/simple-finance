@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use, useTransition } from 'react';
+import { getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -185,7 +186,7 @@ export default function AccountDetailPage({
   const handleOpenAddSubAccount = () => {
     setEditingSubAccount(null);
     setSaName('');
-    setSaColor('#6366f1');
+    setSaColor(getRandomColor());
     setSaBalance('0');
     setSaNotes('');
     setSaCredUsername('');

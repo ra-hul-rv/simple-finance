@@ -44,6 +44,14 @@ export async function GET(
             },
           },
         },
+        externalSpends: {
+          include: {
+            category: {
+              include: { parent: true },
+            },
+          },
+          orderBy: { date: 'desc' },
+        },
       },
     });
 
@@ -80,7 +88,7 @@ export async function GET(
         const amt = Number(tx.amount);
         if (tx.splitCount) {
           if (tx.splitType === 'MULTIPLY') return sum + (amt * tx.splitCount);
-          if (tx.splitType === 'DIVIDE') return sum + amt; // For DIVIDE, amount is already the total
+          if (tx.splitType === 'DIVIDE') return sum + amt;
         }
         return sum + amt;
       }, 0);
@@ -96,7 +104,12 @@ export async function GET(
         return sum + amt;
       }, 0);
 
-    // Category breakdown
+    // External spends total
+    const totalExternalSpend = tag.externalSpends.reduce(
+      (sum: number, es: any) => sum + Number(es.amount), 0
+    );
+
+    // Category breakdown (your transactions)
     const categoryMap = new Map<string, { name: string; amount: number; color: string }>();
     txList.filter((tx: any) => tx.type === 'EXPENSE' && tx.category).forEach((tx: any) => {
       const amt = Number(tx.amount);
@@ -109,6 +122,16 @@ export async function GET(
       const existing = categoryMap.get(catName) || { name: catName, amount: 0, color: tx.category.color || '#6366f1' };
       existing.amount += adjustedAmt;
       categoryMap.set(catName, existing);
+    });
+
+    // External spend category breakdown
+    const externalCategoryMap = new Map<string, { name: string; amount: number; color: string }>();
+    tag.externalSpends.filter((es: any) => es.category).forEach((es: any) => {
+      const amt = Number(es.amount);
+      const catName = es.category.parent ? `${es.category.parent.name} > ${es.category.name}` : es.category.name;
+      const existing = externalCategoryMap.get(catName) || { name: catName, amount: 0, color: es.category.color || '#6366f1' };
+      existing.amount += amt;
+      externalCategoryMap.set(catName, existing);
     });
 
     return NextResponse.json({
@@ -129,10 +152,13 @@ export async function GET(
       transactionCount: txList.length,
       totalIncome,
       totalExpense,
+      totalExternalSpend,
+      totalGroupSpend: totalExpense + totalExternalSpend,
       netAmount: totalIncome - totalExpense,
       amountYouOwe,
       amountYouAreOwed,
       categoryBreakdown: Array.from(categoryMap.values()).sort((a, b) => b.amount - a.amount),
+      externalCategoryBreakdown: Array.from(externalCategoryMap.values()).sort((a, b) => b.amount - a.amount),
       transactions: txList.map((tx: any) => ({
         id: tx.id,
         date: tx.date,
@@ -151,6 +177,21 @@ export async function GET(
         splitCount: tx.splitCount,
         splitType: tx.splitType,
       })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      externalSpends: tag.externalSpends.map((es: any) => ({
+        id: es.id,
+        date: es.date,
+        amount: Number(es.amount),
+        description: es.description,
+        personName: es.personName,
+        merchant: es.merchant,
+        notes: es.notes,
+        category: es.category ? {
+          id: es.category.id,
+          name: es.category.name,
+          color: es.category.color,
+          parent: es.category.parent ? { name: es.category.parent.name } : null,
+        } : null,
+      })),
     });
   } catch (error) {
     console.error('Failed to get tag:', error);

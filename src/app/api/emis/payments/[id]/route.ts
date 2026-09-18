@@ -8,6 +8,7 @@ const updateSchema = z.object({
   paidDate: z.string().optional().nullable(),
   paymentSource: z.enum(['SELF', 'FRIEND']).optional().nullable(),
   sourceAccountId: z.string().uuid().optional().nullable(),
+  amount: z.number().positive().optional().nullable(),
 });
 
 async function syncCreditCardBalances(accountId: string, prismaClient: any) {
@@ -62,9 +63,9 @@ export async function PUT(
       // Execute within a Prisma Transaction
       const result = await prisma.$transaction(async (tx: any) => {
         let transactionId = null;
+        const amount = validated.amount ? validated.amount : Number(payment.amount);
 
         if (validated.paymentSource && validated.sourceAccountId) {
-          const amount = payment.amount;
           const date = validated.paidDate ? new Date(validated.paidDate) : new Date();
 
           if (validated.paymentSource === 'SELF') {
@@ -130,6 +131,7 @@ export async function PUT(
             status: 'PAID',
             paidDate: validated.paidDate ? new Date(validated.paidDate) : new Date(),
             transactionId: transactionId,
+            amount: amount,
           },
         });
 
