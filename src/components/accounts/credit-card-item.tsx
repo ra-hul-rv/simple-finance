@@ -63,40 +63,12 @@ export function CreditCardItem({
   const usagePct = cc.creditLimit > 0 ? (cc.outstandingBalance / cc.creditLimit) * 100 : 0;
 
   return (
-    <Card className="glass relative overflow-hidden border-border/40 rounded-2xl card-hover">
-      <CardContent className="p-5 space-y-4">
-        {/* Card Header with actions */}
-        <div className="flex items-start justify-between">
-          <div className="space-y-0.5">
-            <h3 className="text-base font-bold truncate max-w-[200px]">{cc.cardName}</h3>
-            {cc.lastFourDigits && (
-              <span className="text-[11px] text-muted-foreground font-mono">
-                •••• {cc.lastFourDigits}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 rounded-lg hover:bg-accent"
-              onClick={onEdit}
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Flippable Card Visual */}
-        <div className="flex justify-center">
+    <div className="relative overflow-hidden border border-border/30 rounded-2xl flex flex-col bg-card/40 backdrop-blur-sm shadow-sm transition-all hover:shadow-md group p-0 m-0">
+      
+      {/* Top half: Full width Credit Card Visual without its own border radius */}
+      <div className="relative w-full overflow-hidden border-b border-border/20">
+        {/* We use a negative margin trick or scale to make the visual fit perfectly, or just modify the visual directly */}
+        <div className="w-full">
           <CreditCardVisual
             template={template}
             cardNumber={cc.cardNumber}
@@ -104,61 +76,87 @@ export function CreditCardItem({
             cardHolderName={cc.cardHolderName}
             expiryDate={cc.expiryDate}
             cvv={cc.cvv}
-            size="md"
+            size="full"
+            forceFlat={true}
+            className="!w-full !max-w-full h-auto aspect-[1.9/1] rounded-t-2xl m-0 p-0"
           />
         </div>
+        
+        {/* Floating actions over the card */}
+        <div className="absolute top-3 right-3 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-lg bg-black/40 hover:bg-black/60 text-white backdrop-blur-md border border-white/10"
+            onClick={onEdit}
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-lg bg-black/40 hover:bg-red-500/80 text-white backdrop-blur-md border border-white/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
 
+      <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
+        
         {/* Usage Progress */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Credit Usage</span>
-            <span className={cn("font-semibold tabular-nums", usagePct > 80 && "text-destructive")}>
+        <div className="space-y-1.5 mt-1">
+          <div className="flex justify-between text-[11px] font-medium tracking-wide">
+            <span className="text-muted-foreground uppercase">Credit Usage</span>
+            <span className={cn("tabular-nums", usagePct > 80 && "text-destructive")}>
               {usagePct.toFixed(1)}%
             </span>
           </div>
           <Progress
             value={Math.min(usagePct, 100)}
-            className="h-2 rounded-full"
+            className="h-1.5 rounded-full bg-secondary/50"
+            indicatorClassName={usagePct > 80 ? 'bg-destructive' : 'bg-primary'}
           />
         </div>
 
         {/* Outstanding & Available */}
-        <div className="grid grid-cols-2 gap-4 text-xs">
-          <div className="space-y-1">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-0.5">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Outstanding</p>
-            <p className="font-bold text-base tabular-nums text-destructive">
+            <p className="font-bold text-lg tabular-nums text-foreground">
               {formatCurrency(cc.outstandingBalance)}
             </p>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Available</p>
-            <p className="font-bold text-base tabular-nums text-emerald-500">
+            <p className="font-bold text-lg tabular-nums text-emerald-500 dark:text-emerald-400">
               {formatCurrency(cc.availableCredit)}
             </p>
           </div>
         </div>
 
         {/* Billing Info Row */}
-        <div className="grid grid-cols-3 gap-2 text-[10px] bg-accent/20 rounded-xl p-3 border border-border/20">
+        <div className="grid grid-cols-3 gap-2 text-[10px] bg-secondary/30 rounded-xl p-2.5 border border-border/40">
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground font-semibold flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Statement
+              <Calendar className="h-3 w-3" /> Stmt
             </span>
             <span className="font-medium">
               {cc.statementDate ? `${cc.statementDate}${getOrdinalSuffix(cc.statementDate)}` : '—'}
             </span>
           </div>
-          <div className="flex flex-col gap-0.5 border-l border-border/30 pl-2.5">
-            <span className="text-muted-foreground font-semibold">Due Date</span>
+          <div className="flex flex-col gap-0.5 border-l border-border/50 pl-2">
+            <span className="text-muted-foreground font-semibold">Due</span>
             <span className="font-semibold text-destructive">
               {cc.dueDate ? `${cc.dueDate}${getOrdinalSuffix(cc.dueDate)}` : '—'}
             </span>
           </div>
-          <div className="flex flex-col gap-0.5 border-l border-border/30 pl-2.5">
+          <div className="flex flex-col gap-0.5 border-l border-border/50 pl-2">
             <span className="text-muted-foreground font-semibold flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Last Paid
+              <Clock className="h-3 w-3" /> Paid
             </span>
-            <span className="font-medium truncate text-emerald-500">
+            <span className="font-medium truncate text-emerald-600 dark:text-emerald-400">
               {cc.lastPaidDate ? new Date(cc.lastPaidDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
             </span>
           </div>
@@ -166,28 +164,28 @@ export function CreditCardItem({
 
         {/* Rewards */}
         {cc.rewardsBalance > 0 && (
-          <div className="flex items-center justify-between text-xs bg-amber-500/5 rounded-lg px-3 py-2 border border-amber-500/10">
-            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
-              <Award className="h-3.5 w-3.5" /> Reward Points
+          <div className="flex items-center justify-between text-xs bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
+            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold tracking-wide">
+              <Award className="h-3.5 w-3.5" /> Rewards
             </span>
-            <span className="font-bold tabular-nums">{cc.rewardsBalance.toLocaleString()}</span>
+            <span className="font-bold tabular-nums text-amber-600 dark:text-amber-400">{cc.rewardsBalance.toLocaleString()} pts</span>
           </div>
         )}
 
         {/* Footer */}
-        <div className="border-t border-border/30 pt-3 flex justify-between items-center">
+        <div className="pt-2 flex justify-between items-center mt-auto">
           <Link
             href={`/accounts/${accountId}`}
-            className="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5"
+            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-0.5"
           >
-            View Card Ledger
+            View Ledger
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
-          <Badge variant="outline" className="text-[9px] font-mono">
-            {formatCurrency(cc.creditLimit)} limit
+          <Badge variant="secondary" className="text-[9px] font-mono tracking-wider bg-secondary/50">
+            LIMIT: {formatCurrency(cc.creditLimit)}
           </Badge>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

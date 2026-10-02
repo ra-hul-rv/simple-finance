@@ -15,7 +15,8 @@ interface CreditCardVisualProps {
   cvv?: string | null;
   outstandingBalance?: number;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'full';
+  forceFlat?: boolean;
 }
 
 export function CreditCardVisual({
@@ -28,6 +29,7 @@ export function CreditCardVisual({
   outstandingBalance, // Optional, can be used to show somewhere if needed, but not specified in instructions to render it on the card directly.
   className,
   size = 'md',
+  forceFlat = false,
 }: CreditCardVisualProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
@@ -36,11 +38,13 @@ export function CreditCardVisual({
     sm: 'w-[260px]',
     md: 'w-full max-w-[340px]',
     lg: 'w-full max-w-[400px]',
+    full: 'w-full max-w-none',
   };
 
   const formattedCardNumber = () => {
     if (cardNumber) {
-      return cardNumber.replace(/(.{4})/g, '$1 ').trim();
+      const clean = cardNumber.replace(/\s+/g, '');
+      return clean.replace(/(.{4})/g, '$1 ').trim();
     }
     if (lastFourDigits) {
       return `•••• •••• •••• ${lastFourDigits}`;
@@ -160,6 +164,61 @@ export function CreditCardVisual({
     }
   };
 
+    if (forceFlat) {
+    return (
+      <div className={cn("relative cursor-pointer w-full m-0 p-0", className)} onClick={handleCardClick} style={{ width: "100%", maxWidth: "100%", margin: 0 }}>
+        <div 
+          className="absolute inset-0 overflow-hidden rounded-[inherit]"
+          style={{ background: template.gradient }}
+        >
+          <PatternOverlay />
+          <div className={cn("relative z-10 w-full h-full p-5 md:p-6 flex flex-col justify-between", template.textColor)}>
+            <div className="flex justify-between items-start">
+              <div className="flex flex-col">
+                <span className="font-bold text-lg tracking-tight">{template.logoText}</span>
+                <span className="text-xs opacity-80 font-medium tracking-wider mt-1">{template.cardTitle}</span>
+              </div>
+              <div className="flex-shrink-0 scale-110">
+                {getNetworkLogo(template.brand)}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div 
+                className={cn(
+                  "w-12 h-9 rounded-md relative overflow-hidden flex flex-col justify-evenly",
+                  template.chipStyle === 'gold' 
+                    ? "bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600"
+                    : "bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400"
+                )}
+              >
+                <div className="w-full h-[1px] bg-black/20" />
+                <div className="w-full h-[1px] bg-black/20" />
+                <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-black/20 transform -translate-x-1/2" />
+                <div className="absolute w-[60%] h-[50%] border border-black/20 left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-[2px]" />
+              </div>
+              <Wifi className="w-6 h-6 opacity-70 rotate-90" />
+            </div>
+            <div className="font-mono text-xl tracking-[0.15em] pt-2 pb-1 drop-shadow-sm">
+              {formattedCardNumber()}
+            </div>
+            <div className="flex justify-between items-end pb-1">
+              <div className="flex flex-col">
+                <span className="text-xs opacity-80 uppercase tracking-widest mb-1">Card Holder</span>
+                <span className="font-semibold text-sm uppercase truncate max-w-[180px]">
+                  {cardHolderName || 'YOUR NAME'}
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] opacity-80 uppercase tracking-wider mb-1">Valid Thru</span>
+                <span className="font-mono text-sm font-medium">{expiryDate || 'MM/YY'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={cn(
@@ -187,8 +246,8 @@ export function CreditCardVisual({
             {/* Top Row */}
             <div className="flex justify-between items-start">
               <div className="flex flex-col">
-                <span className="font-semibold text-lg">{template.logoText}</span>
-                <span className="text-xs opacity-75 font-medium tracking-wider mt-1">{template.cardTitle}</span>
+                <span className="font-bold text-lg tracking-tight">{template.logoText}</span>
+                <span className="text-xs opacity-80 font-medium tracking-wider mt-1">{template.cardTitle}</span>
               </div>
               <div className="flex-shrink-0">
                 {getNetworkLogo(template.brand)}
@@ -214,21 +273,21 @@ export function CreditCardVisual({
             </div>
 
             {/* Card Number */}
-            <div className="font-mono text-xl md:text-2xl tracking-widest pt-2">
+            <div className="font-mono text-xl tracking-[0.15em] pt-2 pb-1 drop-shadow-sm">
               {formattedCardNumber()}
             </div>
 
             {/* Bottom Row */}
             <div className="flex justify-between items-end pb-1">
               <div className="flex flex-col">
-                <span className="text-[10px] opacity-70 uppercase tracking-widest mb-1">Card Holder</span>
-                <span className="font-semibold text-sm uppercase truncate max-w-[150px]">
+                <span className="text-xs opacity-80 uppercase tracking-widest mb-1">Card Holder</span>
+                <span className="font-semibold text-sm uppercase truncate max-w-[180px]">
                   {cardHolderName || 'YOUR NAME'}
                 </span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-[8px] opacity-70 uppercase tracking-wider mb-1">Valid Thru</span>
-                <span className="font-mono text-sm">{expiryDate || 'MM/YY'}</span>
+                <span className="text-[10px] opacity-80 uppercase tracking-wider mb-1">Valid Thru</span>
+                <span className="font-mono text-sm font-medium">{expiryDate || 'MM/YY'}</span>
               </div>
             </div>
           </div>

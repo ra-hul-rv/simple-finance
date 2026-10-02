@@ -38,6 +38,7 @@ import {
   Landmark,
   Eye,
   EyeOff,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/format';
@@ -141,6 +142,7 @@ export default function UnifiedAccountsPage() {
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<'type' | 'activity'>('type');
   const [typeFilter, setTypeFilter] = useState('ALL');
 
   // Dialog
@@ -444,6 +446,17 @@ export default function UnifiedAccountsPage() {
           />
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="hidden sm:flex items-center gap-1.5 border-r border-border/50 pr-3 mr-1">
+            <Select value={sortMode} onValueChange={(val: any) => setSortMode(val)}>
+              <SelectTrigger className="w-[160px] bg-background/30 border-border/40 h-10 rounded-xl">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="type">Group by Type</SelectItem>
+                <SelectItem value="activity">Active Spends First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Filter className="h-4 w-4 text-muted-foreground" />
           <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val || 'ALL')}>
             <SelectTrigger className="w-[180px] bg-background/30 border-border/40 h-10 rounded-xl">
