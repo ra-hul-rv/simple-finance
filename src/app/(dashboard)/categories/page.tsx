@@ -5,6 +5,8 @@ import { cn, getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import EmojiPicker from 'emoji-picker-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -24,6 +26,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import * as LucideIcons from 'lucide-react';
+import { TabsContent } from '@/components/ui/tabs';
 import { Plus, Tag, Edit2, Trash2, Loader2, ChevronRight, LayoutList, GripVertical, FolderOpen, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -53,6 +57,7 @@ interface Category {
   description: string | null;
   budgetAmount: number | null;
   parentId: string | null;
+  transactionCount?: number;
 }
 
 function SortableCategory({
@@ -91,33 +96,63 @@ function SortableCategory({
         <div {...attributes} {...listeners} className="cursor-grab hover:bg-black/10 p-1 rounded -ml-1 text-muted-foreground" onClick={e => e.stopPropagation()}>
           <GripVertical className="h-4 w-4" />
         </div>
-        <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                {cat.icon && COMMON_ICONS.includes(cat.icon) ? (
+          <div className="shrink-0 mr-1" style={{ color: cat.color }}>
+            {renderIcon(cat.icon, "h-4 w-4")}
+          </div>
+        ) : cat.icon && !/^[a-z-]+$/.test(cat.icon) ? (
+          <span className="shrink-0 text-sm leading-none mr-1">{cat.icon}</span>
+        ) : (
+          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+        )}
         <span className="truncate">{cat.name}</span>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(cat);
-          }}
-          className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
-        >
-          <Edit2 className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(cat.id);
-          }}
-          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-        <ChevronRight className="h-4 w-4 ml-1 opacity-65" />
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2" title={`${cat.transactionCount || 0} transactions`}>
+          <span className="bg-background/50 px-2 py-0.5 rounded-full border border-border/50">
+            {cat.transactionCount || 0}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(cat);
+            }}
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-all"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(cat.id);
+            }}
+            className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+          <ChevronRight className="h-4 w-4 ml-1 opacity-65" />
+        </div>
       </div>
     </div>
   );
 }
+
+
+const COMMON_ICONS = [
+  'Tag', 'Utensils', 'Car', 'ShoppingBag', 'Zap', 'Film', 'HeartPulse', 
+  'GraduationCap', 'Home', 'Shield', 'Repeat', 'Plane', 'Gift', 
+  'Briefcase', 'Coffee', 'Monitor', 'Smartphone', 'Wifi', 'Book', 
+  'Music', 'Dumbbell', 'TrendingUp', 'Droplet', 'Flame', 'CreditCard',
+  'PiggyBank', 'Wrench', 'Scissors', 'Shirt', 'Bus', 'Train', 'Ship', 'Activity'
+];
+
+const renderIcon = (name: string, className?: string) => {
+  const IconComponent = (LucideIcons as any)[name];
+  if (!IconComponent) return null;
+  return <IconComponent className={className || "h-4 w-4"} />;
+};
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -625,31 +660,69 @@ export default function CategoriesPage() {
                   <span className="text-xs font-mono">{color}</span>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="label-uppercase text-muted-foreground">Icon Symbol</Label>
-                <Select value={icon} onValueChange={(val: any) => setIcon(val || 'tag')} disabled={isPending}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Icon">
-                      {icon === 'tag' ? 'Tag' : icon === 'utensils' ? 'Utensils' : icon === 'car' ? 'Car' : icon === 'shopping-bag' ? 'Bag' : icon === 'zap' ? 'Zap' : icon === 'film' ? 'Film' : icon === 'heart-pulse' ? 'Heart' : icon === 'graduation-cap' ? 'Cap' : icon}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tag">Tag</SelectItem>
-                    <SelectItem value="utensils">Utensils</SelectItem>
-                    <SelectItem value="car">Car</SelectItem>
-                    <SelectItem value="shopping-bag">Bag</SelectItem>
-                    <SelectItem value="zap">Zap</SelectItem>
-                    <SelectItem value="film">Film</SelectItem>
-                    <SelectItem value="heart-pulse">Heart</SelectItem>
-                    <SelectItem value="graduation-cap">Cap</SelectItem>
-                    <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="shield">Shield</SelectItem>
-                    <SelectItem value="repeat">Repeat</SelectItem>
-                    <SelectItem value="plane">Plane</SelectItem>
-                    <SelectItem value="gift">Gift</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                            <div className="space-y-1.5">
+                              <Label className="label-uppercase text-muted-foreground">Icon Symbol / Emoji</Label>
+                              <div>
+                                <Popover>
+                                  <PopoverTrigger className="h-11 w-full flex items-center px-4 rounded-md border border-border/40 bg-background/50 hover:bg-background/80 cursor-pointer">
+                                      {icon ? (
+                                        COMMON_ICONS.includes(icon) ? (
+                                          <div className="mr-2 text-primary">{renderIcon(icon, "h-5 w-5")}</div>
+                                        ) : (
+                                          <span className="text-xl mr-2">{icon}</span>
+                                        )
+                                      ) : (
+                                        <span className="text-muted-foreground mr-2 text-sm">Select Icon...</span>
+                                      )}
+                                      <span className="text-muted-foreground text-xs">{icon ? (COMMON_ICONS.includes(icon) ? icon : 'Custom Emoji') : 'None Selected'}</span>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[350px] p-0 border-border/40" align="start">
+                                    <Tabs defaultValue="icons" className="w-full">
+                                      <div className="border-b border-border/20 p-2">
+                                        <TabsList className="grid w-full grid-cols-2 h-9 bg-muted/50">
+                                          <TabsTrigger value="icons" className="text-xs">Icons</TabsTrigger>
+                                          <TabsTrigger value="emojis" className="text-xs">Emojis</TabsTrigger>
+                                        </TabsList>
+                                      </div>
+                                      <TabsContent value="icons" className="p-4 m-0 outline-none">
+                                        <div className="grid grid-cols-6 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                                          {COMMON_ICONS.map((iconName) => (
+                                            <button
+                                              key={iconName}
+                                              type="button"
+                                              onClick={() => {
+                                                setIcon(iconName);
+                                                // Optional: auto-close popover
+                                              }}
+                                              className={`flex h-10 w-10 items-center justify-center rounded-lg border transition-all ${
+                                                icon === iconName 
+                                                  ? 'border-primary bg-primary/10 text-primary' 
+                                                  : 'border-border/30 bg-background/50 hover:bg-accent/40 text-muted-foreground'
+                                              }`}
+                                              title={iconName}
+                                            >
+                                              {renderIcon(iconName, "h-4 w-4")}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </TabsContent>
+                                      <TabsContent value="emojis" className="m-0 border-none outline-none">
+                                        <EmojiPicker 
+                                          onEmojiClick={(e) => setIcon(e.emoji)}
+                                          theme={"dark" as any}
+                                          lazyLoadEmojis={true}
+                                          width="100%"
+                                          height={330}
+                                        />
+                                      </TabsContent>
+                                    </Tabs>
+                                  </PopoverContent>
+                                </Popover>
+                                <div className="mt-2 text-[10px] text-muted-foreground">
+                                  Optional: Pick an emoji to represent this category instead of a dot.
+                                </div>
+                              </div>
+                            </div>
             </div>
             {currentTab === 'EXPENSE' && (
               <div className="space-y-1.5">

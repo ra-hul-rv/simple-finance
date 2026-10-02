@@ -54,7 +54,7 @@ import {
   Filter,
   Loader2,
   Calendar as CalendarIcon,
-  ChevronLeft,
+  ChevronLeft, ChevronDown,
   ChevronRight,
   Eye,
   EyeOff,
@@ -66,6 +66,7 @@ import {
   Check,
   ChevronsUpDown,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/format';
 
@@ -91,7 +92,7 @@ interface Transaction {
   categoryId: string | null;
   transferToAccountId: string | null;
   account: { name: string; color: string };
-  category: { name: string; color: string } | null;
+  category: { name: string; color: string; icon?: string; } | null;
   transferToAccount: { name: string; color: string } | null;
   attachments?: Attachment[];
   personId?: string | null;
@@ -115,12 +116,14 @@ interface Account {
   name: string;
   type?: string;
   subAccounts?: any[];
+  creditCard?: any;
 }
 
 interface Category {
   id: string;
   name: string;
   type: 'INCOME' | 'EXPENSE';
+  parentId: string | null;
 }
 
 const getCategoryPath = (category: any): string => {
@@ -132,6 +135,128 @@ const getCategoryPath = (category: any): string => {
     current = current.parent;
   }
   return parts.join(' / ');
+};
+
+function GroupInsightsPopover({ txs, title }: { txs: any[], title: string }) {
+  const accountTypes: Record<string, number> = {};
+  const categories: Record<string, number> = {};
+  const tags: Record<string, number> = {};
+  const incomeSources: Record<string, number> = {};
+  let totalIncome = 0;
+  
+  txs.forEach(tx => {
+    const amt = tx.amount;
+    const isExpense = ['EXPENSE', 'INVESTMENT'].includes(tx.type);
+    const isIncome = ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type);
+    
+    if (isExpense) {
+      // Account Types
+      const accType = tx.account?.type || 'Other';
+      accountTypes[accType] = (accountTypes[accType] || 0) + amt;
+      
+      // Categories
+      const catName = tx.category?.name || 'Uncategorized';
+      categories[catName] = (categories[catName] || 0) + amt;
+      
+      // Tags
+      if (tx.tags && tx.tags.length > 0) {
+        tx.tags.forEach((tag: any) => {
+          tags[tag.name] = (tags[tag.name] || 0) + amt;
+        });
+      }
+    } else if (isIncome) {
+      totalIncome += amt;
+      const catName = tx.category?.name || 'Uncategorized';
+      incomeSources[catName] = (incomeSources[catName] || 0) + amt;
+    }
+  });
+
+  const sortDesc = (obj: Record<string, number>) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <Popover>
+      <PopoverTrigger className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-primary/20 text-primary hover:text-primary transition-colors cursor-pointer outline-none" onClick={(e: any) => e.stopPropagation()}>
+        <Sparkles className="h-3.5 w-3.5" />
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-4 bg-background/95 backdrop-blur-md border-border/50 shadow-xl" align="end" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border-b border-border/30 pb-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h4 className="font-semibold text-sm">{title} Insights</h4>
+          </div>
+          
+          <div className="max-h-[300px] overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+            {totalIncome > 0 && (
+              <div className="space-y-1.5">
+                <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Income Sources</h5>
+                {sortDesc(incomeSources).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center text-xs">
+                    <span className="text-foreground">{name}</span>
+                    <span className="text-success font-medium">+{formatCurrency(val, 'INR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {Object.keys(accountTypes).length > 0 && (
+              <div className="space-y-1.5">
+                <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Spend by Account Type</h5>
+                {sortDesc(accountTypes).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center text-xs">
+                    <span className="text-foreground">{name.replace('_', ' ')}</span>
+                    <span className="text-destructive font-medium">-{formatCurrency(val, 'INR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {Object.keys(categories).length > 0 && (
+              <div className="space-y-1.5">
+                <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Spend by Category</h5>
+                {sortDesc(categories).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center text-xs">
+                    <span className="text-foreground">{name}</span>
+                    <span className="text-destructive font-medium">-{formatCurrency(val, 'INR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {Object.keys(tags).length > 0 && (
+              <div className="space-y-1.5">
+                <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Spend by Tag</h5>
+                {sortDesc(tags).map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-center text-xs">
+                    <span className="text-foreground">#{name}</span>
+                    <span className="text-destructive font-medium">-{formatCurrency(val, 'INR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {totalIncome === 0 && Object.keys(accountTypes).length === 0 && (
+              <div className="text-center text-xs text-muted-foreground py-4">No data to analyze for this period.</div>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
+const COMMON_ICONS = [
+  'Tag', 'Utensils', 'Car', 'ShoppingBag', 'Zap', 'Film', 'HeartPulse', 
+  'GraduationCap', 'Home', 'Shield', 'Repeat', 'Plane', 'Gift', 
+  'Briefcase', 'Coffee', 'Monitor', 'Smartphone', 'Wifi', 'Book', 
+  'Music', 'Dumbbell', 'TrendingUp', 'Droplet', 'Flame', 'CreditCard',
+  'PiggyBank', 'Wrench', 'Scissors', 'Shirt', 'Bus', 'Train', 'Ship', 'Activity'
+];
+
+const renderIcon = (name: string, className?: string) => {
+  const IconComponent = (LucideIcons as any)[name];
+  if (!IconComponent) return null;
+  return <IconComponent className={className || "h-3 w-3"} />;
 };
 
 export default function TransactionsPage() {
@@ -181,6 +306,10 @@ function TransactionsPageContent() {
   const [lightboxSrc, setLightboxSrc] = useState('');
   const [lightboxIsPdf, setLightboxIsPdf] = useState(false);
   const [lightboxIsOpen, setLightboxIsOpen] = useState(false);
+
+  // Grouping state
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<'detailed' | 'flat'>('detailed');
 
   // Dialog forms
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -261,15 +390,31 @@ function TransactionsPageContent() {
 
   const fetchFilters = async () => {
     try {
-      const [accRes, catRes, ftRes, tplRes, pplRes, tagRes] = await Promise.all([
+      const [accRes, ccRes, catRes, ftRes, tplRes, pplRes, tagRes] = await Promise.all([
         fetch('/api/accounts'),
+        fetch('/api/credit-cards'),
         fetch('/api/categories'),
         fetch('/api/flow-types'),
         fetch('/api/templates'),
         fetch('/api/people'),
         fetch('/api/tags'),
       ]);
-      if (accRes.ok) setAccounts(await accRes.json());
+      if (accRes.ok) {
+        const accs = await accRes.json();
+        if (ccRes.ok) {
+          const cards = await ccRes.json();
+          const hydrated = accs.map((acc: any) => {
+            if (acc.type === 'CREDIT_CARD') {
+              const cc = cards.find((c: any) => c.accountId === acc.id);
+              return { ...acc, creditCard: cc };
+            }
+            return acc;
+          });
+          setAccounts(hydrated);
+        } else {
+          setAccounts(accs);
+        }
+      }
       if (catRes.ok) setCategories(await catRes.json());
       if (ftRes.ok) setFlowTypes(await ftRes.json());
       if (tplRes.ok) setTemplates(await tplRes.json());
@@ -278,6 +423,92 @@ function TransactionsPageContent() {
     } catch (err) {
       console.error('Failed to fetch filters:', err);
     }
+  };
+
+  const groupedTransactions = React.useMemo(() => {
+    const monthGroups: Record<string, { label: string, monthStr: string, income: number, expense: number, weeks: Record<string, any>, sortedWeeks: any[] }> = {};
+
+    transactions.forEach(tx => {
+      const dateObj = new Date(tx.date);
+      const monthStr = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      
+      if (!monthGroups[monthStr]) {
+        monthGroups[monthStr] = {
+          label: monthStr,
+          monthStr,
+          income: 0,
+          expense: 0,
+          weeks: {},
+          sortedWeeks: []
+        };
+      }
+      
+      const firstDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+      const firstDayWeekday = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
+      const offsetDate = dateObj.getDate() + firstDayWeekday - 1;
+      const weekNum = Math.floor(offsetDate / 7) + 1;
+      const weekStr = `${monthStr}-W${weekNum}`;
+      const weekLabel = `Week ${weekNum}`;
+
+      if (!monthGroups[monthStr].weeks[weekStr]) {
+        monthGroups[monthStr].weeks[weekStr] = {
+          label: weekLabel,
+          weekStr,
+          income: 0,
+          expense: 0,
+          txs: []
+        };
+      }
+
+      monthGroups[monthStr].weeks[weekStr].txs.push(tx);
+
+      if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) {
+        monthGroups[monthStr].income += tx.amount;
+        monthGroups[monthStr].weeks[weekStr].income += tx.amount;
+      } else if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) {
+        monthGroups[monthStr].expense += tx.amount;
+        monthGroups[monthStr].weeks[weekStr].expense += tx.amount;
+      }
+    });
+
+    return Object.values(monthGroups).map(mg => {
+      mg.sortedWeeks = Object.values(mg.weeks).sort((a: any, b: any) => b.weekStr.localeCompare(a.weekStr));
+      return mg;
+    });
+  }, [transactions]);
+
+  const toggleGroupCollapse = (idStr: string) => {
+    setCollapsedGroups(prev => {
+      const currentMonthStr = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      // Current month expanded by default, current week expanded by default
+      const dateObj = new Date();
+      const firstDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+      const firstDayWeekday = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
+      const offsetDate = dateObj.getDate() + firstDayWeekday - 1;
+      const weekNum = Math.floor(offsetDate / 7) + 1;
+      const currentWeekStr = `${currentMonthStr}-W${weekNum}`;
+
+      const isCurrent = idStr === currentMonthStr || idStr === currentWeekStr;
+      
+      const currentState = prev[idStr] !== undefined ? prev[idStr] : !isCurrent;
+      return { ...prev, [idStr]: !currentState };
+    });
+  };
+
+  const isGroupCollapsed = (idStr: string) => {
+    if (collapsedGroups[idStr] !== undefined) {
+      return collapsedGroups[idStr];
+    }
+    const dateObj = new Date();
+    const currentMonthStr = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const firstDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+    const firstDayWeekday = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
+    const offsetDate = dateObj.getDate() + firstDayWeekday - 1;
+    const weekNum = Math.floor(offsetDate / 7) + 1;
+    const currentWeekStr = `${currentMonthStr}-W${weekNum}`;
+
+    const isCurrent = idStr === currentMonthStr || idStr === currentWeekStr;
+    return !isCurrent; // Default: collapsed if not current month or current week
   };
 
   useEffect(() => {
@@ -331,6 +562,54 @@ function TransactionsPageContent() {
       setTopUpSourceAccountId('');
     }
   }, [accountId, accounts]);
+
+  // Smart auto-fill for transfers
+  useEffect(() => {
+    if ((txType === 'TRANSFER' || txType === 'CREDIT_CARD_PAYMENT') && accountId && transferToAccountId && !editingTransaction) {
+      const source = accounts.find(a => a.id === accountId);
+      const dest = accounts.find(a => a.id === transferToAccountId);
+      if (!source || !dest) return;
+
+      if ((source.type === 'SAVINGS' || source.type === 'CURRENT') && dest.type === 'CREDIT_CARD') {
+        // Bill payment
+        setTxType('CREDIT_CARD_PAYMENT');
+        if (dest.creditCard?.outstandingBalance && (!amount || amount === '0')) {
+          setAmount(dest.creditCard.outstandingBalance.toString());
+        }
+        if (!description || description === 'Fund Transfer') {
+          setDescription('Payment done');
+        }
+        if (!merchant) setMerchant('Cred');
+        if (!location) setLocation('online');
+        
+        if (dest.creditCard?.statementDate) {
+          const today = new Date();
+          let sDate = new Date(today.getFullYear(), today.getMonth(), dest.creditCard.statementDate);
+          if (sDate > today) {
+            sDate = new Date(today.getFullYear(), today.getMonth() - 1, dest.creditCard.statementDate);
+          }
+          // Only update if date is today (default) to avoid overwriting user edits
+          const todayStr = today.toISOString().split('T')[0];
+          const localTodayStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+          
+          if (date === todayStr || date === localTodayStr) {
+             const yyyy = sDate.getFullYear();
+             const mm = String(sDate.getMonth() + 1).padStart(2, '0');
+             const dd = String(sDate.getDate()).padStart(2, '0');
+             setDate(`${yyyy}-${mm}-${dd}`);
+          }
+        }
+      } else if ((source.type === 'SAVINGS' || source.type === 'CURRENT') && (dest.type === 'SAVINGS' || dest.type === 'CURRENT')) {
+        if (!description || description === 'Fund Transfer') {
+          setDescription(`Salary to ${dest.name} account load`);
+        }
+      } else if (source.type === 'CREDIT_CARD' && (dest.type === 'GIFT_CARD' || dest.type === 'WALLET')) {
+        if (!description || description === 'Fund Transfer') {
+          setDescription('Coupon purchase auto fill');
+        }
+      }
+    }
+  }, [txType, accountId, transferToAccountId, accounts, editingTransaction, amount, description, merchant, location, date]);
 
   const toggleSort = (column: 'date' | 'amount' | 'description' | 'category') => {
     if (sortBy === column) {
@@ -781,7 +1060,14 @@ function TransactionsPageContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Categories</SelectItem>
-                  {categories.map((cat) => (
+                  {categories.filter(c => {
+                    if (c.parentId) return false;
+                    if (typeFilter !== 'ALL') {
+                      const mappedType = ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(typeFilter) ? 'INCOME' : 'EXPENSE';
+                      if (c.type !== mappedType) return false;
+                    }
+                    return true;
+                  }).map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -885,6 +1171,24 @@ function TransactionsPageContent() {
         </div>
       </Card>
 
+      {/* View Toggle */}
+      <div className="flex justify-end mt-4 mb-2">
+        <div className="flex bg-background/30 p-1 rounded-xl border border-border/40">
+          <button
+            onClick={() => setViewMode('detailed')}
+            className={cn("px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors", viewMode === 'detailed' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+          >
+            Detailed
+          </button>
+          <button
+            onClick={() => setViewMode('flat')}
+            className={cn("px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors", viewMode === 'flat' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+          >
+            Flat
+          </button>
+        </div>
+      </div>
+
       {/* Ledger Table */}
       {loading ? (
         <div className="flex h-64 items-center justify-center">
@@ -927,39 +1231,16 @@ function TransactionsPageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(() => {
-                  let currentDate = '';
-                  let isAlt = false;
-
-                  return transactions.map((tx, index) => {
-                    const txDate = tx.date.split('T')[0];
-                    if (txDate !== currentDate) {
-                      currentDate = txDate;
-                      isAlt = !isAlt;
-                    }
-
-                    let isNewMonth = false;
-                    if (index > 0) {
-                      const prevDate = new Date(transactions[index - 1].date);
-                      const currDate = new Date(tx.date);
-                      if (prevDate.getMonth() !== currDate.getMonth() || prevDate.getFullYear() !== currDate.getFullYear()) {
-                        isNewMonth = true;
-                      }
-                    }
-
-                    return (
-                      <Fragment key={tx.id}>
-                        {isNewMonth && (
-                          <TableRow className="border-none hover:bg-transparent bg-transparent">
-                            <TableCell colSpan={showAttachmentsOnList ? 8 : 7} className="p-0">
-                              <div className="h-0.5 w-full bg-foreground/10 my-1"></div>
-                            </TableCell>
-                          </TableRow>
-                        )}
+                {viewMode === 'flat' ? (
+                  <>
+                    {transactions.map((tx, index) => {
+                      const isAlt = index % 2 !== 0;
+                      return (
                         <TableRow 
+                          key={tx.id}
                           className={cn(
                             "border-border/10 transition-colors", 
-                            isAlt ? "bg-muted/30 hover:bg-muted/50" : "bg-transparent hover:bg-muted/20"
+                            isAlt ? "bg-muted/10 hover:bg-muted/30" : "bg-transparent hover:bg-muted/20"
                           )}
                         >
                           <TableCell className="text-xs text-muted-foreground pl-6 font-medium whitespace-nowrap">
@@ -984,130 +1265,409 @@ function TransactionsPageContent() {
                               </div>
                             )}
                           </TableCell>
-                    <TableCell className="text-xs font-semibold">
-                      {tx.type === 'TRANSFER' || tx.type === 'CREDIT_CARD_PAYMENT' ? (
-                        <span className="flex items-center gap-1.5">
-                          <span className="truncate">{tx.account.name}</span>
-                          <ArrowLeftRight className="h-3 w-3 text-muted-foreground inline shrink-0" />
-                          <span className="truncate text-primary">{tx.transferToAccount?.name || 'External'}</span>
-                        </span>
-                      ) : (
-                        <>
-                          {tx.account.name}
-                          {tx.subAccount && (
-                            <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-semibold">
-                              {tx.subAccount.name}
-                            </span>
+                          <TableCell className="text-xs font-semibold">
+                            {tx.type === 'TRANSFER' || tx.type === 'CREDIT_CARD_PAYMENT' ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="truncate">{tx.account.name}</span>
+                                <ArrowLeftRight className="h-3 w-3 text-muted-foreground inline shrink-0" />
+                                <span className="truncate text-primary">{tx.transferToAccount?.name || 'External'}</span>
+                              </span>
+                            ) : (
+                              <>
+                                {tx.account.name}
+                                {tx.subAccount && (
+                                  <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-semibold">
+                                    {tx.subAccount.name}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground italic font-medium">
+                            {tx.location || ''}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1 items-start">
+                              {tx.category ? (
+  <span
+    title={getCategoryPath(tx.category)}
+    className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block truncate max-w-[180px] hover:max-w-none transition-all duration-300 cursor-help"
+    style={{
+      backgroundColor: `${tx.category.color}15`,
+      color: tx.category.color,
+    }}
+  >
+    <span className="flex items-center gap-1.5">
+                                    {tx.category.icon && COMMON_ICONS.includes(tx.category.icon) ? (
+                                      renderIcon(tx.category.icon, "h-3 w-3")
+                                    ) : tx.category.icon && !/^[a-z-]+$/.test(tx.category.icon) ? (
+                                      <span>{tx.category.icon}</span>
+                                    ) : null}
+                                    <span className="truncate">{getCategoryPath(tx.category)}</span>
+                                  </span>
+  </span>
+) : null}
+                              {tx.flowType ? (
+                                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                  {tx.flowType}
+                                </span>
+                              ) : !tx.category ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent text-muted-foreground">
+                                  {tx.type.replace('_', ' ')}
+                                </span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          {showAttachmentsOnList && (
+                            <TableCell>
+                              {tx.attachments && tx.attachments.length > 0 ? (
+                                <div className="flex items-center gap-1.5">
+                                  {tx.attachments.map((att) => {
+                                    const isImage = att.fileType.startsWith('image/');
+                                    return (
+                                      <button
+                                        key={att.id}
+                                        onClick={() => handleOpenLightbox(att.filePath, att.fileType)}
+                                        className="h-8 w-8 rounded-lg overflow-hidden border border-border/30 hover:border-primary/50 transition-colors flex items-center justify-center bg-background/40 hover:bg-background/80 shrink-0 cursor-pointer"
+                                        title={att.fileName}
+                                      >
+                                        {isImage ? (
+                                          <img
+                                            src={att.filePath}
+                                            alt={att.fileName}
+                                            className="h-full w-full object-cover"
+                                          />
+                                        ) : (
+                                          <FileText className="h-3.5 w-3.5 text-primary" />
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/40 font-medium"></span>
+                              )}
+                            </TableCell>
                           )}
-                        </>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground italic font-medium">
-                      {tx.location || ''}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 items-start">
-                        {tx.category ? (
-                          <span
-                            title={getCategoryPath(tx.category)}
-                            className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block truncate max-w-[180px] hover:max-w-none transition-all duration-300 cursor-help"
-                            style={{
-                              backgroundColor: `${tx.category.color}15`,
-                              color: tx.category.color,
-                            }}
+                          <TableCell className={cn(
+                            "text-right font-bold tabular-nums text-sm pr-6",
+                            ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)
+                              ? 'text-success'
+                              : 'text-foreground'
+                          )}>
+                            {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
+                            {['EXPENSE', 'INVESTMENT'].includes(tx.type) ? '-' : ''}
+                            {formatCurrency(tx.amount, 'INR')}
+                          </TableCell>
+                          <TableCell className="pr-6">
+                            <div className="flex items-center gap-1 justify-end">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
+                                title="Duplicate Transaction"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDuplicateTransaction(tx);
+                                }}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 rounded-lg hover:bg-accent"
+                                onClick={() => handleOpenEditDialog(tx)}
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteTransaction(tx.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    {groupedTransactions.map((group) => {
+                      const isMonthCollapsed = isGroupCollapsed(group.monthStr);
+                      const allMonthTxs = group.sortedWeeks.flatMap(w => w.txs);
+                      
+                      return (
+                        <Fragment key={group.monthStr}>
+                          {/* MONTH ROW */}
+                          <TableRow 
+                            className="border-border/10 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors group"
+                            onClick={() => toggleGroupCollapse(group.monthStr)}
                           >
-                            {getCategoryPath(tx.category)}
-                          </span>
-                        ) : null}
-                        {tx.flowType ? (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                            {tx.flowType}
-                          </span>
-                        ) : !tx.category ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent text-muted-foreground">
-                            {tx.type.replace('_', ' ')}
-                          </span>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    {showAttachmentsOnList && (
-                      <TableCell>
-                        {tx.attachments && tx.attachments.length > 0 ? (
-                          <div className="flex items-center gap-1.5">
-                            {tx.attachments.map((att) => {
-                              const isImage = att.fileType.startsWith('image/');
-                              return (
-                                <button
-                                  key={att.id}
-                                  onClick={() => handleOpenLightbox(att.filePath, att.fileType)}
-                                  className="h-8 w-8 rounded-lg overflow-hidden border border-border/30 hover:border-primary/50 transition-colors flex items-center justify-center bg-background/40 hover:bg-background/80 shrink-0 cursor-pointer"
-                                  title={att.fileName}
+                            <TableCell colSpan={showAttachmentsOnList ? 8 : 7} className="py-3 px-6">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 text-primary transition-transform duration-200",
+                                    !isMonthCollapsed && "rotate-180"
+                                  )}>
+                                    <ChevronDown className="h-4 w-4" />
+                                  </div>
+                                  <span className="font-bold text-sm text-primary">{group.label}</span>
+                                  <span className="text-xs text-primary/70 font-semibold bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                                    {allMonthTxs.length} transactions
+                                  </span>
+                                  <GroupInsightsPopover txs={allMonthTxs} title={group.label} />
+                                </div>
+                                
+                                <div className="flex items-center gap-6">
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-[10px] uppercase text-muted-foreground font-semibold">Income</span>
+                                    <span className="text-xs text-success font-medium">+{formatCurrency(group.income, 'INR')}</span>
+                                  </div>
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-[10px] uppercase text-muted-foreground font-semibold">Expense</span>
+                                    <span className="text-xs text-destructive font-medium">-{formatCurrency(group.expense, 'INR')}</span>
+                                  </div>
+                                  <div className="flex flex-col items-end min-w-[80px]">
+                                    <span className="text-[10px] uppercase text-muted-foreground font-semibold">Net</span>
+                                    <span className={cn(
+                                      "text-sm font-bold",
+                                      group.income - group.expense >= 0 ? "text-success" : "text-destructive"
+                                    )}>
+                                      {group.income - group.expense > 0 ? '+' : ''}{formatCurrency(group.income - group.expense, 'INR')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+              
+                          {/* WEEKS */}
+                          {!isMonthCollapsed && group.sortedWeeks.map((week) => {
+                            const isWeekCollapsed = isGroupCollapsed(week.weekStr);
+                            return (
+                              <Fragment key={week.weekStr}>
+                                <TableRow 
+                                  className="border-border/5 bg-muted/10 hover:bg-muted/30 cursor-pointer transition-colors group"
+                                  onClick={() => toggleGroupCollapse(week.weekStr)}
                                 >
-                                  {isImage ? (
-                                    <img
-                                      src={att.filePath}
-                                      alt={att.fileName}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <FileText className="h-3.5 w-3.5 text-primary" />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/40 font-medium"></span>
-                        )}
-                      </TableCell>
-                    )}
-                    <TableCell className={cn(
-                      "text-right font-bold tabular-nums text-sm pr-6",
-                      ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)
-                        ? 'text-success'
-                        : 'text-foreground'
-                    )}>
-                      {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
-                      {['EXPENSE', 'INVESTMENT'].includes(tx.type) ? '-' : ''}
-                      {formatCurrency(tx.amount, 'INR')}
-                    </TableCell>
-                    <TableCell className="pr-6">
-                      <div className="flex items-center gap-1 justify-end">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
-                          title="Duplicate Transaction"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDuplicateTransaction(tx);
-                          }}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 rounded-lg hover:bg-accent"
-                          onClick={() => handleOpenEditDialog(tx)}
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                </Fragment>
-              );
-            })})()}
+                                  <TableCell colSpan={showAttachmentsOnList ? 8 : 7} className="py-2 px-6 pl-12">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-border/50 bg-background transition-transform duration-200",
+                                          !isWeekCollapsed && "rotate-180"
+                                        )}>
+                                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                        </div>
+                                        <span className="font-semibold text-xs text-foreground/80">{week.label}</span>
+                                        <span className="text-[10px] text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/30">
+                                          {week.txs.length} transactions
+                                        </span>
+                                        <GroupInsightsPopover txs={week.txs} title={`${group.label} - ${week.label}`} />
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-5">
+                                        <div className="flex flex-col items-end">
+                                          <span className="text-[9px] uppercase text-muted-foreground font-semibold">Income</span>
+                                          <span className="text-[11px] text-success font-medium">+{formatCurrency(week.income, 'INR')}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                          <span className="text-[9px] uppercase text-muted-foreground font-semibold">Expense</span>
+                                          <span className="text-[11px] text-destructive font-medium">-{formatCurrency(week.expense, 'INR')}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end min-w-[70px]">
+                                          <span className="text-[9px] uppercase text-muted-foreground font-semibold">Net</span>
+                                          <span className={cn(
+                                            "text-xs font-bold",
+                                            week.income - week.expense >= 0 ? "text-success" : "text-destructive"
+                                          )}>
+                                            {week.income - week.expense > 0 ? '+' : ''}{formatCurrency(week.income - week.expense, 'INR')}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+              
+                                {/* TRANSACTIONS */}
+                                {!isWeekCollapsed && week.txs.map((tx: any, index: number) => {
+                                  const isAlt = index % 2 !== 0;
+                                  return (
+                                    <TableRow 
+                                      key={tx.id}
+                                      className={cn(
+                                        "border-border/5 transition-colors", 
+                                        isAlt ? "bg-muted/5 hover:bg-muted/20" : "bg-transparent hover:bg-muted/10"
+                                      )}
+                                    >
+                                      <TableCell className="text-xs text-muted-foreground pl-14 font-medium whitespace-nowrap">
+                                        {formatDate(tx.date, 'dd/MM/yyyy')}
+                                      </TableCell>
+                                      <TableCell className="w-[35%] max-w-[35%] min-w-[200px] break-words whitespace-normal text-wrap">
+                                        <div className="font-semibold text-sm text-foreground text-wrap break-words">{tx.description}</div>
+                                        {tx.merchant && (
+                                          <div className="text-[10px] text-muted-foreground mt-0.5 font-medium text-wrap break-words">{tx.merchant}</div>
+                                        )}
+                                        {tx.tags && tx.tags.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {tx.tags.map((tag: any) => (
+                                              <span
+                                                key={tag.id}
+                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-border/30 bg-background/50"
+                                              >
+                                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                                                {tag.name}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-xs font-semibold">
+                                        {tx.type === 'TRANSFER' || tx.type === 'CREDIT_CARD_PAYMENT' ? (
+                                          <span className="flex items-center gap-1.5">
+                                            <span className="truncate">{tx.account.name}</span>
+                                            <ArrowLeftRight className="h-3 w-3 text-muted-foreground inline shrink-0" />
+                                            <span className="truncate text-primary">{tx.transferToAccount?.name || 'External'}</span>
+                                          </span>
+                                        ) : (
+                                          <>
+                                            {tx.account.name}
+                                            {tx.subAccount && (
+                                              <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-semibold">
+                                                {tx.subAccount.name}
+                                              </span>
+                                            )}
+                                          </>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground italic font-medium">
+                                        {tx.location || ''}
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="flex flex-col gap-1 items-start">
+                                          {tx.category ? (
+  <span
+    title={getCategoryPath(tx.category)}
+    className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block truncate max-w-[180px] hover:max-w-none transition-all duration-300 cursor-help"
+    style={{
+      backgroundColor: `${tx.category.color}15`,
+      color: tx.category.color,
+    }}
+  >
+    <span className="flex items-center gap-1.5">
+                                    {tx.category.icon && COMMON_ICONS.includes(tx.category.icon) ? (
+                                      renderIcon(tx.category.icon, "h-3 w-3")
+                                    ) : tx.category.icon && !/^[a-z-]+$/.test(tx.category.icon) ? (
+                                      <span>{tx.category.icon}</span>
+                                    ) : null}
+                                    <span className="truncate">{getCategoryPath(tx.category)}</span>
+                                  </span>
+  </span>
+) : null}
+                                          {tx.flowType ? (
+                                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                              {tx.flowType}
+                                            </span>
+                                          ) : !tx.category ? (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent text-muted-foreground">
+                                              {tx.type.replace('_', ' ')}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </TableCell>
+                                      {showAttachmentsOnList && (
+                                        <TableCell>
+                                          {tx.attachments && tx.attachments.length > 0 ? (
+                                            <div className="flex items-center gap-1.5">
+                                              {tx.attachments.map((att: any) => {
+                                                const isImage = att.fileType.startsWith('image/');
+                                                return (
+                                                  <button
+                                                    key={att.id}
+                                                    onClick={() => handleOpenLightbox(att.filePath, att.fileType)}
+                                                    className="h-8 w-8 rounded-lg overflow-hidden border border-border/30 hover:border-primary/50 transition-colors flex items-center justify-center bg-background/40 hover:bg-background/80 shrink-0 cursor-pointer"
+                                                    title={att.fileName}
+                                                  >
+                                                    {isImage ? (
+                                                      <img
+                                                        src={att.filePath}
+                                                        alt={att.fileName}
+                                                        className="h-full w-full object-cover"
+                                                      />
+                                                    ) : (
+                                                      <FileText className="h-3.5 w-3.5 text-primary" />
+                                                    )}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          ) : (
+                                            <span className="text-xs text-muted-foreground/40 font-medium"></span>
+                                          )}
+                                        </TableCell>
+                                      )}
+                                      <TableCell className={cn(
+                                        "text-right font-bold tabular-nums text-sm pr-6",
+                                        ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)
+                                          ? 'text-success'
+                                          : 'text-foreground'
+                                      )}>
+                                        {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
+                                        {['EXPENSE', 'INVESTMENT'].includes(tx.type) ? '-' : ''}
+                                        {formatCurrency(tx.amount, 'INR')}
+                                      </TableCell>
+                                      <TableCell className="pr-6">
+                                        <div className="flex items-center gap-1 justify-end">
+                                          <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-8 w-8 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground"
+                                            title="Duplicate Transaction"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDuplicateTransaction(tx);
+                                            }}
+                                          >
+                                            <Copy className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-8 w-8 rounded-lg hover:bg-accent"
+                                            onClick={() => handleOpenEditDialog(tx)}
+                                          >
+                                            <Edit2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                            onClick={() => handleDeleteTransaction(tx.id)}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </Fragment>
+                            );
+                          })}
+                        </Fragment>
+                      );
+                    })}
+                  </>
+                )}
+                
                 {transactions.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={showAttachmentsOnList ? 8 : 7} className="text-center py-16 text-sm text-muted-foreground border-0">

@@ -115,6 +115,20 @@ export async function GET(request: Request) {
         { description: { contains: search, mode: 'insensitive' } },
         { merchant: { contains: search, mode: 'insensitive' } },
         { notes: { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
+        { flowType: { contains: search, mode: 'insensitive' } },
+        { category: { name: { contains: search, mode: 'insensitive' } } },
+        { account: { name: { contains: search, mode: 'insensitive' } } },
+        { transferToAccount: { name: { contains: search, mode: 'insensitive' } } },
+        {
+          tags: {
+            some: {
+              tag: {
+                name: { contains: search, mode: 'insensitive' }
+              }
+            }
+          }
+        }
       ];
     }
 
@@ -196,6 +210,11 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const validated = transactionSchema.parse(body);
+    
+    // Auto-capitalize description
+    if (validated.description) {
+      validated.description = validated.description.charAt(0).toUpperCase() + validated.description.slice(1);
+    }
 
     // Evaluate TRANSACTION_CREATED active rules
     const activeRules = await prisma.automationRule.findMany({

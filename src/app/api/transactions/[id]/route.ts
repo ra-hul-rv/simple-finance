@@ -217,6 +217,10 @@ export async function PUT(
     const body = await request.json();
     const validated = updateTransactionSchema.parse(body);
 
+    if (validated.description) {
+      validated.description = validated.description.charAt(0).toUpperCase() + validated.description.slice(1);
+    }
+
     const updatedTx = await prisma.$transaction(async (tx: any) => {
       // Find old transaction
       const oldTx = await tx.transaction.findFirst({

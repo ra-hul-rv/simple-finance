@@ -42,12 +42,18 @@ export async function GET(request: Request) {
         userId,
         isActive: true,
       },
+      include: {
+        _count: {
+          select: { transactions: true }
+        }
+      },
       orderBy: [{ order: 'asc' }, { name: 'asc' }],
     });
 
     const formatted = categories.map((cat: any) => ({
       ...cat,
       budgetAmount: cat.budgetAmount ? Number(cat.budgetAmount) : null,
+      transactionCount: cat._count.transactions,
     }));
 
     return NextResponse.json(formatted);
