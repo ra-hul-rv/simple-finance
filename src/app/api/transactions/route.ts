@@ -108,28 +108,43 @@ export async function GET(request: Request) {
     };
 
     if (type) whereClause.type = type;
-    if (accountId) whereClause.accountId = accountId;
     if (categoryId) whereClause.categoryId = categoryId;
-    if (search) {
-      whereClause.OR = [
-        { description: { contains: search, mode: 'insensitive' } },
-        { merchant: { contains: search, mode: 'insensitive' } },
-        { notes: { contains: search, mode: 'insensitive' } },
-        { location: { contains: search, mode: 'insensitive' } },
-        { flowType: { contains: search, mode: 'insensitive' } },
-        { category: { name: { contains: search, mode: 'insensitive' } } },
-        { account: { name: { contains: search, mode: 'insensitive' } } },
-        { transferToAccount: { name: { contains: search, mode: 'insensitive' } } },
-        {
-          tags: {
-            some: {
-              tag: {
-                name: { contains: search, mode: 'insensitive' }
+    
+    if (accountId || search) {
+      whereClause.AND = [];
+      
+      if (accountId) {
+        whereClause.AND.push({
+          OR: [
+            { accountId: accountId },
+            { transferToAccountId: accountId }
+          ]
+        });
+      }
+      
+      if (search) {
+        whereClause.AND.push({
+          OR: [
+            { description: { contains: search, mode: 'insensitive' } },
+            { merchant: { contains: search, mode: 'insensitive' } },
+            { notes: { contains: search, mode: 'insensitive' } },
+            { location: { contains: search, mode: 'insensitive' } },
+            { flowType: { contains: search, mode: 'insensitive' } },
+            { category: { name: { contains: search, mode: 'insensitive' } } },
+            { account: { name: { contains: search, mode: 'insensitive' } } },
+            { transferToAccount: { name: { contains: search, mode: 'insensitive' } } },
+            {
+              tags: {
+                some: {
+                  tag: {
+                    name: { contains: search, mode: 'insensitive' }
+                  }
+                }
               }
             }
-          }
-        }
-      ];
+          ]
+        });
+      }
     }
 
     if (startDate || endDate) {

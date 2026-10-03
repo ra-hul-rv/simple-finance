@@ -87,6 +87,8 @@ interface Transaction {
   description: string;
   merchant: string | null;
   category: { name: string; color: string } | null;
+  accountId: string;
+  transferToAccountId: string | null;
 }
 
 export default function AccountDetailPage({
@@ -166,10 +168,18 @@ export default function AccountDetailPage({
 
   const filteredTransactions = useMemo(() => {
     if (txFilter === 'ALL') return transactions;
-    if (txFilter === 'INCOME') return transactions.filter((t: any) => ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(t.type));
-    if (txFilter === 'EXPENSE') return transactions.filter((t: any) => ['EXPENSE', 'INVESTMENT'].includes(t.type));
+    if (txFilter === 'INCOME') return transactions.filter((t: any) => 
+      ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(t.type) || 
+      (t.type === 'TRANSFER' && t.transferToAccountId === account?.id) ||
+      (t.type === 'CREDIT_CARD_PAYMENT' && t.transferToAccountId === account?.id)
+    );
+    if (txFilter === 'EXPENSE') return transactions.filter((t: any) => 
+      ['EXPENSE', 'INVESTMENT'].includes(t.type) || 
+      (t.type === 'TRANSFER' && t.accountId === account?.id) ||
+      (t.type === 'CREDIT_CARD_PAYMENT' && t.accountId === account?.id)
+    );
     return transactions;
-  }, [transactions, txFilter]);
+  }, [transactions, txFilter, account]);
 
   const monthlyAnalytics = useMemo(() => {
     if (!account) return [];
@@ -179,8 +189,8 @@ export default function AccountDetailPage({
     
     let totalTxEffect = 0;
     ascTx.forEach(tx => {
-      if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) totalTxEffect += Number(tx.amount);
-      if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) totalTxEffect -= Number(tx.amount);
+      if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) || (['TRANSFER', 'CREDIT_CARD_PAYMENT'].includes(tx.type) && tx.transferToAccountId === account.id)) totalTxEffect += Number(tx.amount);
+      if (['EXPENSE', 'INVESTMENT'].includes(tx.type) || (['TRANSFER', 'CREDIT_CARD_PAYMENT'].includes(tx.type) && tx.accountId === account.id)) totalTxEffect -= Number(tx.amount);
     });
     
     // Initial balance at the start of time
@@ -212,14 +222,17 @@ export default function AccountDetailPage({
       const amt = Number(tx.amount);
       const catName = tx.category?.name?.toLowerCase() || '';
       
-      if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) {
+      const isIncome = ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) || (['TRANSFER', 'CREDIT_CARD_PAYMENT'].includes(tx.type) && tx.transferToAccountId === account.id);
+      const isExpense = ['EXPENSE', 'INVESTMENT'].includes(tx.type) || (['TRANSFER', 'CREDIT_CARD_PAYMENT'].includes(tx.type) && tx.accountId === account.id);
+      
+      if (isIncome) {
         stat.income += amt;
         currentBal += amt;
         if (catName.includes('cashback')) stat.cashback += amt;
         if (catName.includes('interest')) stat.interest += amt;
       }
       
-      if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) {
+      if (isExpense) {
         stat.expense += amt;
         currentBal -= amt;
       }
