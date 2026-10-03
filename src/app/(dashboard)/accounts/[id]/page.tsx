@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, use, useTransition } from 'react';
+import { useEffect, useState, use, useTransition, useMemo } from 'react';
 import { getRandomColor } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -96,6 +97,8 @@ export default function AccountDetailPage({
   const { id } = use(params);
   const [account, setAccount] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [txFilter, setTxFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL');
+  const [allIncomeTx, setAllIncomeTx] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   
@@ -124,10 +127,16 @@ export default function AccountDetailPage({
       setAccount(accData);
 
       // 2. Fetch transactions for this account
-      const txRes = await fetch(`/api/transactions?accountId=${id}&limit=100&sortBy=${sortBy}&sortOrder=${sortOrder}`);
+      const txRes = await fetch(`/api/transactions?accountId=${id}&limit=1000&sortBy=${sortBy}&sortOrder=${sortOrder}`);
       if (!txRes.ok) throw new Error('Failed to load transactions');
       const txData = await txRes.json();
       setTransactions(txData.transactions);
+
+      const incomeRes = await fetch(`/api/transactions?type=INCOME&limit=2000`);
+      if (incomeRes.ok) {
+        const data = await incomeRes.json();
+        setAllIncomeTx(data.transactions || []);
+      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to load account ledger details');
@@ -153,6 +162,96 @@ export default function AccountDetailPage({
     if (sortBy !== column) return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50" />;
     return sortOrder === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />;
   };
+
+
+  const filteredTransactions = useMemo(() => {
+    if (txFilter === 'ALL') return transactions;
+    if (txFilter === 'INCOME') return transactions.filter((t: any) => ['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(t.type));
+    if (txFilter === 'EXPENSE') return transactions.filter((t: any) => ['EXPENSE', 'INVESTMENT'].includes(t.type));
+    return transactions;
+  }, [transactions, txFilter]);
+
+  const monthlyAnalytics = useMemo(() => {
+    if (!account) return [];
+    
+    // Sort ascending for balance calculation
+    const ascTx = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    let totalTxEffect = 0;
+    ascTx.forEach(tx => {
+      if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) totalTxEffect += Number(tx.amount);
+      if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) totalTxEffect -= Number(tx.amount);
+    });
+    
+    // Initial balance at the start of time
+    const initialBalance = Number(account.balance) - totalTxEffect;
+    
+    let currentBal = initialBalance;
+    const monthsMap = new Map();
+    
+    // Group internal transactions
+    ascTx.forEach(tx => {
+      const d = new Date(tx.date);
+      const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
+      const mName = d.toLocaleDateString('default', { month: 'short', year: 'numeric' });
+      
+      if (!monthsMap.has(mKey)) {
+        monthsMap.set(mKey, {
+          key: mKey,
+          name: mName,
+          openingBal: currentBal,
+          closingBal: currentBal,
+          income: 0,
+          expense: 0,
+          cashback: 0,
+          interest: 0,
+        });
+      }
+      
+      const stat = monthsMap.get(mKey);
+      const amt = Number(tx.amount);
+      const catName = tx.category?.name?.toLowerCase() || '';
+      
+      if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) {
+        stat.income += amt;
+        currentBal += amt;
+        if (catName.includes('cashback')) stat.cashback += amt;
+        if (catName.includes('interest')) stat.interest += amt;
+      }
+      
+      if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) {
+        stat.expense += amt;
+        currentBal -= amt;
+      }
+      
+      stat.closingBal = currentBal;
+    });
+    
+    // Process external cashbacks (transferred to other accounts but belonging to this card)
+    if (account.type === 'CREDIT_CARD') {
+      const accNameLower = account.name.toLowerCase();
+      allIncomeTx.forEach((tx: any) => {
+        // Only if it's not already in this account
+        if (tx.accountId === account.id) return;
+        
+        const catName = tx.category?.name?.toLowerCase() || '';
+        const desc = (tx.description || '').toLowerCase();
+        const notes = (tx.notes || '').toLowerCase();
+        
+        if (catName.includes('cashback') && (desc.includes(accNameLower) || notes.includes(accNameLower))) {
+          const d = new Date(tx.date);
+          const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
+          const mName = d.toLocaleDateString('default', { month: 'short', year: 'numeric' });
+          if (!monthsMap.has(mKey)) {
+             monthsMap.set(mKey, { key: mKey, name: mName, openingBal: 0, closingBal: 0, income: 0, expense: 0, cashback: 0, interest: 0 });
+          }
+          monthsMap.get(mKey).cashback += Number(tx.amount);
+        }
+      });
+    }
+    
+    return Array.from(monthsMap.values()).sort((a, b) => b.key.localeCompare(a.key));
+  }, [account, transactions, allIncomeTx]);
 
   if (loading) {
     return (
@@ -291,12 +390,21 @@ export default function AccountDetailPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Transaction History Column */}
         <Card className="glass lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold uppercase label-uppercase tracking-wider">Account Statements</CardTitle>
-            <CardDescription>All transactions routed through this account</CardDescription>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-sm font-bold uppercase label-uppercase tracking-wider">Account Statements</CardTitle>
+              <CardDescription>All transactions routed through this account</CardDescription>
+            </div>
+            <Tabs value={txFilter} onValueChange={(v: any) => setTxFilter(v)} className="w-full sm:w-auto">
+              <TabsList className="grid grid-cols-3 h-8">
+                <TabsTrigger value="ALL" className="text-[10px] uppercase">All</TabsTrigger>
+                <TabsTrigger value="EXPENSE" className="text-[10px] uppercase">Spends</TabsTrigger>
+                <TabsTrigger value="INCOME" className="text-[10px] uppercase">Income</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            {transactions.length === 0 ? (
+            {filteredTransactions.length === 0 ? (
               <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
                 No statement records for this account
               </div>
@@ -327,7 +435,7 @@ export default function AccountDetailPage({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((tx) => (
+                    {filteredTransactions.map((tx) => (
                       <TableRow key={tx.id}>
                         <TableCell className="text-xs font-medium text-muted-foreground">
                           {formatDate(tx.date, 'dd/MM/yyyy')}
@@ -371,6 +479,69 @@ export default function AccountDetailPage({
             )}
           </CardContent>
         </Card>
+
+        
+        {/* Monthly Analytics Box */}
+        {monthlyAnalytics.length > 0 && (
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle className="text-sm font-bold uppercase label-uppercase tracking-wider">Monthly Analytics</CardTitle>
+              <CardDescription>Opening, closing, and rewards</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              {monthlyAnalytics.map((stat: any) => (
+                <div key={stat.key} className="p-3 rounded-xl border border-border/40 bg-card/30 space-y-2">
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2 mb-2">
+                    <span className="font-bold text-sm text-primary">{stat.name}</span>
+                    <div className="text-right">
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Net Change</div>
+                      <div className={`text-xs font-bold ${stat.income - stat.expense >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        {stat.income - stat.expense >= 0 ? '+' : ''}{formatCurrency(stat.income - stat.expense, account?.currency)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[9px] text-muted-foreground uppercase font-semibold block">Opening</span>
+                      <span className="font-medium">{formatCurrency(stat.openingBal, account?.currency)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] text-muted-foreground uppercase font-semibold block">Closing</span>
+                      <span className="font-medium">{formatCurrency(stat.closingBal, account?.currency)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between text-xs pt-1">
+                    <span className="text-muted-foreground">Income</span>
+                    <span className="text-success font-medium">+{formatCurrency(stat.income, account?.currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs pb-1">
+                    <span className="text-muted-foreground">Spends</span>
+                    <span className="text-destructive font-medium">-{formatCurrency(stat.expense, account?.currency)}</span>
+                  </div>
+
+                  {(stat.interest > 0 || stat.cashback > 0) && (
+                    <div className="pt-2 mt-1 border-t border-dashed border-border/40 space-y-1">
+                      {stat.interest > 0 && (
+                        <div className="flex justify-between text-xs items-center bg-primary/5 p-1 px-2 rounded-md">
+                          <span className="text-[10px] font-bold text-primary uppercase">Interest Earned</span>
+                          <span className="text-success font-bold">+{formatCurrency(stat.interest, account?.currency)}</span>
+                        </div>
+                      )}
+                      {stat.cashback > 0 && (
+                        <div className="flex justify-between text-xs items-center bg-primary/5 p-1 px-2 rounded-md">
+                          <span className="text-[10px] font-bold text-primary uppercase">Cashback</span>
+                          <span className="text-success font-bold">+{formatCurrency(stat.cashback, account?.currency)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Ledger Metadata Details */}
         <div className="space-y-6">

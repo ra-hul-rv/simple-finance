@@ -1355,9 +1355,17 @@ function TransactionsPageContent() {
                               ? 'text-success'
                               : 'text-foreground'
                           )}>
-                            {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
-                            {['EXPENSE', 'INVESTMENT'].includes(tx.type) ? '-' : ''}
-                            {formatCurrency(tx.amount, 'INR')}
+                            {(() => {
+                              const str = formatCurrency(tx.amount, 'INR');
+                              const sym = str.charAt(0);
+                              const num = str.slice(1);
+                              if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) {
+                                return <><span className="text-destructive">-{sym}</span>{num}</>;
+                              } else if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) {
+                                return <>+{sym}{num}</>;
+                              }
+                              return str;
+                            })()}
                           </TableCell>
                           <TableCell className="pr-6">
                             <div className="flex items-center gap-1 justify-end">
@@ -1619,9 +1627,17 @@ function TransactionsPageContent() {
                                           ? 'text-success'
                                           : 'text-foreground'
                                       )}>
-                                        {['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type) ? '+' : ''}
-                                        {['EXPENSE', 'INVESTMENT'].includes(tx.type) ? '-' : ''}
-                                        {formatCurrency(tx.amount, 'INR')}
+                                        {(() => {
+                                          const str = formatCurrency(tx.amount, 'INR');
+                                          const sym = str.charAt(0);
+                                          const num = str.slice(1);
+                                          if (['EXPENSE', 'INVESTMENT'].includes(tx.type)) {
+                                            return <><span className="text-destructive">-{sym}</span>{num}</>;
+                                          } else if (['INCOME', 'REFUND', 'INTEREST', 'DIVIDEND'].includes(tx.type)) {
+                                            return <>+{sym}{num}</>;
+                                          }
+                                          return str;
+                                        })()}
                                       </TableCell>
                                       <TableCell className="pr-6">
                                         <div className="flex items-center gap-1 justify-end">
