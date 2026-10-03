@@ -89,6 +89,9 @@ function getParsed(event: InboxEvent) {
 
 export default function InboxPage() {
   const [events, setEvents] = useState<InboxEvent[]>([]);
+  const [rawMessages, setRawMessages] = useState<any[]>([]);
+  const [editingRawMsg, setEditingRawMsg] = useState<any | null>(null);
+  const [editingRawMsgContent, setEditingRawMsgContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
@@ -171,19 +174,21 @@ export default function InboxPage() {
 
   const fetchData = async () => {
     try {
-      const [eventsRes, catsRes, accsRes, settingsRes, rulesRes, flowRes] = await Promise.all([
+      const [eventsRes, catsRes, accsRes, settingsRes, rulesRes, flowRes, rawMsgRes] = await Promise.all([
         fetch('/api/inbox'),
         fetch('/api/categories'),
         fetch('/api/accounts'),
         fetch('/api/settings'),
         fetch('/api/sms-rules'),
         fetch('/api/flow-types'),
+        fetch('/api/raw-messages'),
       ]);
       if (eventsRes.ok) setEvents(await eventsRes.json());
       if (catsRes.ok) setCategories((await catsRes.json()).filter((c: any) => c.isActive));
       if (accsRes.ok) setAccounts(await accsRes.json());
       if (rulesRes.ok) setRules(await rulesRes.json());
       if (flowRes.ok) setFlowTypes(await flowRes.json());
+      if (rawMsgRes.ok) setRawMessages(await rawMsgRes.json());
       if (settingsRes.ok) {
         const s = await settingsRes.json();
         if (s.aiProvider === 'nvidia' || s.aiProvider === 'local') {
@@ -304,6 +309,39 @@ export default function InboxPage() {
     fetchData();
   }, []);
 
+
+  const handleDeleteRawMsg = async (id: string) => {
+    if (!confirm('Delete this raw message?')) return;
+    try {
+      const res = await fetch(`/api/raw-messages/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Deleted');
+        setRawMessages(prev => prev.filter(m => m.id !== id));
+      } else throw new Error();
+    } catch {
+      toast.error('Failed to delete');
+    }
+  };
+
+  const handleSaveRawMsgEdit = async () => {
+    if (!editingRawMsg) return;
+    try {
+      const res = await fetch(`/api/raw-messages/${editingRawMsg.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editingRawMsgContent })
+      });
+      if (res.ok) {
+        toast.success('Saved');
+        fetchData();
+        setEditingRawMsg(null);
+      } else throw new Error();
+    } catch {
+      toast.error('Failed to save');
+    }
+  };
+
+  // ─── End Raw Msg ───
   // ─── Delete ────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     try {
@@ -1498,6 +1536,26 @@ export default function InboxPage() {
                 'Save Changes'
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+      <Dialog open={!!editingRawMsg} onOpenChange={(open) => !open && setEditingRawMsg(null)}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Raw Message</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              className="font-mono text-xs min-h-[300px]"
+              value={editingRawMsgContent}
+              onChange={(e) => setEditingRawMsgContent(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRawMsg(null)}>Cancel</Button>
+            <Button onClick={handleSaveRawMsgEdit}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

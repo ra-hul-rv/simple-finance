@@ -94,6 +94,20 @@ export async function POST(request: Request) {
       _upiMatch: upiMatchInfo,
     };
 
+    
+    // Save to RawMessage
+    try {
+      await prisma.rawMessage.create({
+        data: {
+          userId,
+          source: 'n8n_mail',
+          content: JSON.stringify(payload, null, 2)
+        }
+      });
+    } catch (err) {
+      console.error('[N8N Webhook] Failed to save raw message:', err);
+    }
+
     // Create inbox event
     const inboxEvent = await prisma.inboxEvent.create({
       data: {

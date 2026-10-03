@@ -316,6 +316,20 @@ Rules:
       }
     }
 
+    
+    // Save directly to RawMessage for the AI Inbox page
+    try {
+      await prisma.rawMessage.create({
+        data: {
+          userId,
+          source: 'sms',
+          content: message || rawBody || ''
+        }
+      });
+    } catch (err) {
+      console.error('[SMS Webhook] Failed to save raw message:', err);
+    }
+
     // 9. Save directly to InboxEvent for the AI Inbox page
     const payloadToSave = {
       rawMessage: message,
