@@ -81,6 +81,7 @@ interface Attachment {
 interface Transaction {
   id: string;
   date: string;
+  time?: string | null;
   amount: number;
   type: 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'INVESTMENT' | 'CREDIT_CARD_PAYMENT' | 'REFUND' | 'INTEREST' | 'DIVIDEND';
   flowType?: string | null;
@@ -320,6 +321,7 @@ function TransactionsPageContent() {
   const [amount, setAmount] = useState('');
   const [txType, setTxType] = useState<'INCOME' | 'EXPENSE' | 'TRANSFER' | 'INVESTMENT' | 'CREDIT_CARD_PAYMENT' | 'REFUND' | 'INTEREST' | 'DIVIDEND'>('EXPENSE');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState('');
   const [description, setDescription] = useState('');
   const [merchant, setMerchant] = useState('');
   const [location, setLocation] = useState('');
@@ -629,6 +631,7 @@ function TransactionsPageContent() {
     amount: '',
     txType: 'EXPENSE',
     date: new Date().toISOString().split('T')[0],
+    time: '',
     description: '',
     merchant: '',
     location: '',
@@ -642,11 +645,12 @@ function TransactionsPageContent() {
   const { clearDraft } = useFormDraft(
     'transaction',
     initialValues,
-    { amount, txType, date, description, merchant, location, notes, accountId, categoryId, transferToAccountId, flowType },
+    { amount, txType, date, time, description, merchant, location, notes, accountId, categoryId, transferToAccountId, flowType },
     (vals) => {
       setAmount(vals.amount || '');
       setTxType((vals.txType as any) || 'EXPENSE');
       setDate(vals.date || initialValues.date);
+      setTime(vals.time || '');
       setDescription(vals.description || '');
       setMerchant(vals.merchant || '');
       setLocation(vals.location || '');
@@ -668,6 +672,7 @@ function TransactionsPageContent() {
     setSaveAsTemplate(false);
     setTemplateName('');
     setDate(new Date().toISOString().split('T')[0]);
+    setTime('');
     setDescription('');
     setMerchant('');
     setLocation('');
@@ -696,6 +701,7 @@ function TransactionsPageContent() {
     setSaveAsTemplate(false);
     setTemplateName('');
     setDate(new Date().toISOString().split('T')[0]);
+    setTime('');
     setDescription('');
     setMerchant('');
     setLocation('');
@@ -723,6 +729,7 @@ function TransactionsPageContent() {
     const isOneOff = tx.flowType ? !flowTypes.some(f => f.name === tx.flowType) : false;
     setIsOneOffFlow(isOneOff);
     setDate(new Date(tx.date).toISOString().split('T')[0]);
+    setTime(tx.time || '');
     setDescription(tx.description);
     setMerchant(tx.merchant || '');
     setLocation(tx.location || '');
@@ -751,6 +758,7 @@ function TransactionsPageContent() {
       const isOneOff = (tx.flowType && Array.isArray(flowTypes)) ? !flowTypes.some(f => f.name === tx.flowType) : false;
       setIsOneOffFlow(isOneOff);
       setDate(new Date().toISOString().split('T')[0]);
+      setTime(tx.time || '');
       setDescription(tx.description || '');
       setMerchant(tx.merchant || '');
       setLocation(tx.location || '');
@@ -829,6 +837,7 @@ function TransactionsPageContent() {
           type: txType,
           flowType: flowType || null,
           date: new Date(date).toISOString(),
+          time: time.trim() || null,
           description: description.trim(),
           merchant: merchant.trim() || null,
           location: location.trim() || null,
@@ -1244,7 +1253,13 @@ function TransactionsPageContent() {
                           )}
                         >
                           <TableCell className="text-xs text-muted-foreground pl-6 font-medium whitespace-nowrap">
-                            {formatDate(tx.date, 'dd/MM/yyyy')}
+                            <div>{formatDate(tx.date, 'dd/MM/yyyy')}</div>
+                            {tx.time && (
+                              <div className="text-[10px] text-muted-foreground/75 font-normal flex items-center gap-1 mt-0.5">
+                                <LucideIcons.Clock className="h-2.5 w-2.5" />
+                                <span>{tx.time}</span>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="w-[35%] max-w-[35%] min-w-[200px] break-words whitespace-normal text-wrap">
                             <div className="font-semibold text-sm text-foreground text-wrap break-words">{tx.description}</div>
@@ -1516,7 +1531,13 @@ function TransactionsPageContent() {
                                       )}
                                     >
                                       <TableCell className="text-xs text-muted-foreground pl-14 font-medium whitespace-nowrap">
-                                        {formatDate(tx.date, 'dd/MM/yyyy')}
+                                        <div>{formatDate(tx.date, 'dd/MM/yyyy')}</div>
+                                        {tx.time && (
+                                          <div className="text-[10px] text-muted-foreground/75 font-normal flex items-center gap-1 mt-0.5">
+                                            <LucideIcons.Clock className="h-2.5 w-2.5" />
+                                            <span>{tx.time}</span>
+                                          </div>
+                                        )}
                                       </TableCell>
                                       <TableCell className="w-[35%] max-w-[35%] min-w-[200px] break-words whitespace-normal text-wrap">
                                         <div className="font-semibold text-sm text-foreground text-wrap break-words">{tx.description}</div>
@@ -1797,8 +1818,8 @@ function TransactionsPageContent() {
                 </Select>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label className="label-uppercase text-muted-foreground">Amount (₹)</Label>
                 <Input
                   type="number"
@@ -1809,12 +1830,23 @@ function TransactionsPageContent() {
                   className="h-11 px-4 rounded-xl border-border/40 bg-background/20 font-mono text-base"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label className="label-uppercase text-muted-foreground">Transaction Date</Label>
                 <Input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  disabled={isPending}
+                  className="h-11 px-4 rounded-xl border-border/40 bg-background/20"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-1">
+                <Label className="label-uppercase text-muted-foreground">Time (Optional)</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. 10:10 PM"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
                   disabled={isPending}
                   className="h-11 px-4 rounded-xl border-border/40 bg-background/20"
                 />

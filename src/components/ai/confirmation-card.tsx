@@ -13,6 +13,7 @@ export interface ActionPreview {
   type: string;
   description: string;
   date: string;
+  time?: string | null;
   accountName: string;
   categoryName?: string;
   merchant?: string | null;
@@ -101,6 +102,7 @@ export function ConfirmationCard({
             <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
             <span className="truncate">
               Date: <strong className="text-foreground">{preview.date}</strong>
+              {preview.time && <span className="text-foreground/90 font-medium"> ({preview.time})</span>}
             </span>
           </div>
           {preview.notes && (

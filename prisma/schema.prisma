@@ -204,6 +204,7 @@ model Account {
 model Transaction {
   id          String            @id @default(uuid())
   date        DateTime          @default(now())
+  time        String?
   amount      Decimal           @db.Decimal(15, 2)
   type        TransactionType
   flowType    String?

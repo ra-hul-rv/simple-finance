@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { callAi, getAiConfig } from '@/lib/ai';
 
 // Helper to sanitize sensitive PII before passing text to the AI
-export function sanitizeStatementText(text: string): string {
+function sanitizeStatementText(text: string): string {
   let sanitized = text;
 
   // 1. Redact PAN Card numbers (e.g. ABCDE1234F)
@@ -393,7 +393,7 @@ export async function POST(request: Request) {
       activeAiConfig.model
     );
 
-    let rawExtractedList: any[] = [];
+    const rawExtractedList: any[] = [];
     let lastAiError: string | null = null;
 
     // For local Ollama on CPU, process 1 at a time to avoid CPU contention.

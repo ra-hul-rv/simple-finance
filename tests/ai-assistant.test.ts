@@ -121,6 +121,62 @@ async function runTests() {
     assert.strictEqual(emptyDesc.success, false);
   });
 
+  test('propose_create_transaction parses user prompt with Title, Store/Merchant, Private Note, and DD/MM/YYYY', () => {
+    const op = getOperation('propose_create_transaction')!;
+    const input = {
+      Amount: '11716.21',
+      Date: '11/10/2026',
+      Category: 'Electronics',
+      Account: 'AmazonPay',
+      Type: 'Expense',
+      Title: 'Sony WF-1000XM5 Wireless Earbuds',
+      Location: 'Online',
+      'Store / Merchant': 'Clicktech Retail Private Ltd',
+      'Private Note':
+        'Sony WF-1000XM5 Best Active Noise Cancelling Wireless Bluetooth Earbuds – Black. Item Subtotal: ₹13,989.00 | Shipping: ₹0.00 | Offer Processing Fee: ₹90.09 | Total Before Discount: ₹14,079.09 | Instant Bank Discount: -₹2,362.88 | Final Amount Paid: ₹11,716.21 | Order Date: 11 October 2026 | Order Number: 404-9030060-1350764 | Payment Method: Mastercard ending 3258 | Store: Amazon India',
+    };
+
+    const parsed = op.parameters.parse(input) as Record<string, unknown>;
+    assert.strictEqual(parsed.amount, 11716.21);
+    assert.strictEqual(parsed.description, 'Sony WF-1000XM5 Wireless Earbuds');
+    assert.strictEqual(parsed.type, 'EXPENSE');
+    assert.strictEqual(parsed.date, '2026-10-11');
+    assert.strictEqual(parsed.accountName, 'AmazonPay');
+    assert.strictEqual(parsed.categoryName, 'Electronics');
+    assert.strictEqual(parsed.merchant, 'Clicktech Retail Private Ltd');
+    assert.ok(typeof parsed.notes === 'string');
+    assert.ok((parsed.notes as string).includes('Sony WF-1000XM5'));
+    assert.ok((parsed.notes as string).includes('Location: Online'));
+  });
+
+  test('propose_create_transaction handles optional time field in 12-hr and 24-hr formats', () => {
+    const op = getOperation('propose_create_transaction')!;
+
+    // 12-hour format with AM/PM
+    const parsedWithTime = op.parameters.parse({
+      amount: 11716.21,
+      title: 'Sony Earbuds',
+      date: '11/10/2026',
+      time: '10:10 PM',
+    }) as Record<string, unknown>;
+    assert.strictEqual(parsedWithTime.time, '10:10 PM');
+
+    // 24-hour format
+    const parsed24Hr = op.parameters.parse({
+      amount: 500,
+      title: 'Dinner',
+      time: '20:45',
+    }) as Record<string, unknown>;
+    assert.strictEqual(parsed24Hr.time, '20:45');
+
+    // Optional: when omitted, time is undefined
+    const parsedNoTime = op.parameters.parse({
+      amount: 300,
+      title: 'Coffee',
+    }) as Record<string, unknown>;
+    assert.strictEqual(parsedNoTime.time, undefined);
+  });
+
   test('search_transactions bounds limit between 1 and 50', () => {
     const op = getOperation('search_transactions')!;
     const valid = op.parameters.safeParse({ limit: 25 });

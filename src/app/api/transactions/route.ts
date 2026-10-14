@@ -16,6 +16,7 @@ const transactionSchema = z.object({
     'DIVIDEND',
   ]),
   date: z.string().transform((str) => new Date(str)),
+  time: z.string().optional().nullable(),
   description: z.string().min(1, 'Description is required'),
   merchant: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
@@ -320,6 +321,7 @@ export async function POST(request: Request) {
           type: validated.type,
           flowType: validated.flowType || null,
           date: validated.date,
+          time: validated.time || null,
           description: validated.description,
           merchant: validated.merchant,
           location: validated.location,
@@ -425,11 +427,12 @@ export async function POST(request: Request) {
         const topUp = validated.topUp;
 
         // Create a linked TRANSFER transaction from source bank → wallet account
-        const transferTx = await tx.transaction.create({
+        await tx.transaction.create({
           data: {
             amount: topUp.amount,
             type: 'TRANSFER',
             date: validated.date,
+            time: validated.time || null,
             description: `Top-up: ${validated.description}`,
             merchant: validated.merchant,
             notes: `Auto-created top-up for wallet sub-account`,

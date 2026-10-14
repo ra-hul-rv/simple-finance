@@ -39,6 +39,7 @@ export const getRecentTransactionsOperation: Operation = {
     const formatted = transactions.map((t) => ({
       id: t.id,
       date: t.date.toISOString().split('T')[0],
+      time: t.time || null,
       amount: Number(t.amount),
       type: t.type,
       description: t.description || 'No description',
@@ -129,6 +130,7 @@ export const searchTransactionsOperation: Operation = {
     const formatted = transactions.map((t) => ({
       id: t.id,
       date: t.date.toISOString().split('T')[0],
+      time: t.time || null,
       amount: Number(t.amount),
       type: t.type,
       description: t.description,
