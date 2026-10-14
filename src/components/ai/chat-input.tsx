@@ -26,21 +26,22 @@ export function ChatInput({
     }
   }, [input]);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = (e?: React.FormEvent | React.SyntheticEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || disabled) return;
+    const text = input.trim();
+    if (!text || disabled) return;
 
-    onSend(input.trim());
     setInput('');
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
+    onSend(text);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      handleSubmit(e);
     }
   };
 

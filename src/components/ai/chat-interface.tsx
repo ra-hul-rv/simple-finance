@@ -42,6 +42,13 @@ interface Conversation {
   updatedAt: string;
 }
 
+function generateSafeId(prefix: string = 'msg'): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 const STARTER_PROMPTS = [
   {
     icon: TrendingDown,
@@ -162,7 +169,7 @@ export function ChatInterface() {
   };
 
   const handleSend = async (userText: string) => {
-    const tempId = `temp-${crypto.randomUUID()}`;
+    const tempId = generateSafeId('temp');
     const userMsg: Message = {
       id: tempId,
       role: 'user',
@@ -179,17 +186,17 @@ export function ChatInterface() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
-          conversationId: activeConversationId,
+          conversationId: activeConversationId || null,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         if (res.status === 503) {
           setIsAiAvailable(false);
         }
-        throw new Error(data.message || data.error || 'Failed to process AI response');
+        throw new Error(data.message || data.error || `Server error (${res.status})`);
       }
 
       setIsAiAvailable(true);
@@ -200,7 +207,7 @@ export function ChatInterface() {
       }
 
       const assistantMsg: Message = {
-        id: data.messageId || `res-${crypto.randomUUID()}`,
+        id: data.messageId || generateSafeId('res'),
         role: 'assistant',
         content: data.message,
         createdAt: new Date().toISOString(),
@@ -213,7 +220,7 @@ export function ChatInterface() {
       console.error('Chat error:', err);
       toast.error(errMsg);
       const errorMsg: Message = {
-        id: `err-${crypto.randomUUID()}`,
+        id: generateSafeId('err'),
         role: 'assistant',
         content: `Sorry, I encountered an issue: ${errMsg}`,
         createdAt: new Date().toISOString(),

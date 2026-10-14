@@ -7,7 +7,7 @@ import { getAssistantConfig } from '@/lib/ai/assistant-config';
 
 const chatRequestSchema = z.object({
   message: z.string().trim().min(1, 'Message cannot be empty').max(2000, 'Message is too long (max 2000 characters)'),
-  conversationId: z.string().uuid().optional().nullable(),
+  conversationId: z.string().trim().nullish().transform((val) => (val && val.length > 0 ? val : null)),
 });
 
 export async function POST(request: Request) {
