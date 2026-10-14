@@ -55,6 +55,7 @@ export const DEFAULT_SIDEBAR_LAYOUT: SidebarLayout = {
       items: [
         { id: 'dashboard', title: null, isHidden: false },
         { id: 'inbox', title: null, isHidden: false },
+        { id: 'ai-assistant', title: 'AI Assistant', isHidden: false },
         { id: 'accounts', title: null, isHidden: false },
         { id: 'transactions', title: null, isHidden: false },
         { id: 'income', title: null, isHidden: false },

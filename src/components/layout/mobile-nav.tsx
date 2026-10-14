@@ -30,6 +30,7 @@ import {
   Mail,
   Users,
   Calendar as CalendarIcon,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -53,6 +54,7 @@ import { DEFAULT_SIDEBAR_LAYOUT, SidebarLayout } from '../settings/sidebar-edito
 const ICON_MAP: Record<string, React.ElementType> = {
   dashboard: LayoutDashboard,
   inbox: Mail,
+  'ai-assistant': Bot,
   accounts: Wallet,
   transactions: ArrowLeftRight,
   income: DollarSign,
@@ -77,6 +79,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const DEFAULT_TITLE_MAP: Record<string, string> = {
   dashboard: 'Dashboard',
   inbox: 'AI Inbox',
+  'ai-assistant': 'AI Assistant',
   accounts: 'Accounts',
   transactions: 'Transactions',
   income: 'Income',
@@ -128,6 +131,21 @@ export function MobileNav() {
                   targetSec.items.splice(vaultIdx + 1, 0, { id: 'templates', title: null, isHidden: false });
                 } else {
                   targetSec.items.push({ id: 'templates', title: null, isHidden: false });
+                }
+              }
+            }
+
+            // Ensure 'ai-assistant' exists in layout
+            const hasAssistant = parsed.sections.some(sec => sec.items.some(i => i.id === 'ai-assistant'));
+            if (!hasAssistant) {
+              migrated = true;
+              const overviewSec = parsed.sections.find(s => s.id === 'overview') || parsed.sections[0];
+              if (overviewSec) {
+                const inboxIdx = overviewSec.items.findIndex(i => i.id === 'inbox');
+                if (inboxIdx !== -1) {
+                  overviewSec.items.splice(inboxIdx + 1, 0, { id: 'ai-assistant', title: 'AI Assistant', isHidden: false });
+                } else {
+                  overviewSec.items.push({ id: 'ai-assistant', title: 'AI Assistant', isHidden: false });
                 }
               }
             }
